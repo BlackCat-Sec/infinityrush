@@ -6,9 +6,13 @@ Infinity Rush is a production-ready 2D endless runner built with Kotlin, `Surfac
 
 - Endless auto-run gameplay with tap-to-jump and swipe-down-to-slide controls
 - Randomized obstacle system with blocks, spikes, and moving barriers
+- Curated obstacle pattern spawning for fairer, more readable runs
 - Dynamic difficulty that ramps speed and spawn pressure every 10 seconds
+- Buffered jump and slide input with short coyote-time forgiveness
 - Start, pause, resume, and game-over flows
 - Distance-based scoring with persistent high score using `SharedPreferences`
+- In-game audio settings for music and sound effects
+- Impact polish with particle bursts and screen shake feedback
 - Background music via `MediaPlayer`
 - Jump and crash sound effects via `SoundPool`
 - No external art dependencies: visuals are rendered with Canvas shapes
@@ -54,6 +58,7 @@ Infinity Rush is a production-ready 2D endless runner built with Kotlin, `Surfac
 - Tap: Jump
 - Swipe down: Slide
 - Tap pause icon: Pause
+- Settings button on menus: Toggle music and sound effects
 - Tap Resume: Continue the run
 
 ## Project Structure
@@ -71,4 +76,3 @@ Infinity Rush is a production-ready 2D endless runner built with Kotlin, `Surfac
 - Replace the placeholder launcher icon if needed.
 - Update `versionCode` and `versionName` in `app/build.gradle.kts` before release.
 - Add your signing config and Play Store listing assets before publishing.
-

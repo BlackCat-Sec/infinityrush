@@ -24,17 +24,32 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
         GAME_OVER
     }
 
+    private data class SpawnInstruction(
+        val type: ObstacleType,
+        val minGapRatio: Float,
+        val delayMs: Long = 0L
+    )
+
     @Volatile
     private var isLoopRunning = false
 
     private var gameThread: Thread? = null
     private var gameState = GameState.START
+    private var isSettingsOverlayVisible = false
 
     private val random = Random(System.currentTimeMillis())
     private val obstacles = mutableListOf<Obstacle>()
+    private val pendingSpawnQueue = ArrayDeque<SpawnInstruction>()
+    private val particles = mutableListOf<Particle>()
+
     private val playerBounds = RectF()
     private val pauseButtonRect = RectF()
     private val primaryButtonRect = RectF()
+    private val settingsButtonRect = RectF()
+    private val settingsPanelRect = RectF()
+    private val settingsCloseButtonRect = RectF()
+    private val musicToggleRect = RectF()
+    private val sfxToggleRect = RectF()
 
     private val skyPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val farHillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#CBE9F7") }
@@ -42,9 +57,20 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
     private val groundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#0F172A") }
     private val lanePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#1E293B") }
     private val panelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(190, 7, 15, 32) }
+    private val panelStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.argb(60, 255, 255, 255)
+        style = Paint.Style.STROKE
+        strokeWidth = Utils.dpToPx(context, 1.5f)
+    }
     private val buttonPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#24C8DB") }
+    private val buttonMutedPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#334155") }
     private val buttonTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.parseColor("#082F49")
+        textAlign = Paint.Align.CENTER
+        typeface = android.graphics.Typeface.DEFAULT_BOLD
+    }
+    private val panelTitlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
         textAlign = Paint.Align.CENTER
         typeface = android.graphics.Typeface.DEFAULT_BOLD
     }
@@ -66,7 +92,19 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
         color = Color.parseColor("#CBD5E1")
         textAlign = Paint.Align.LEFT
     }
+    private val toggleLabelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        textAlign = Paint.Align.LEFT
+        typeface = android.graphics.Typeface.DEFAULT_BOLD
+    }
+    private val toggleValuePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        textAlign = Paint.Align.CENTER
+        typeface = android.graphics.Typeface.DEFAULT_BOLD
+    }
     private val pauseIconPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#E2E8F0") }
+    private val sunPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(180, 255, 255, 255) }
+    private val particlePaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
     private var player: Player? = null
     private val soundManager = SoundManager(context)
@@ -74,6 +112,7 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
     private var sceneReady = false
     private var groundTop = 0f
     private var backgroundScroll = 0f
+    private var lastSpawnedType: ObstacleType? = null
 
     private var score = 0
     private var highScore = Utils.getHighScore(context)
@@ -87,6 +126,14 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
     private var touchDownX = 0f
     private var touchDownY = 0f
     private var touchDownTime = 0L
+    private var gestureConsumed = false
+    private var touchStartedOnUi = false
+
+    private var shakeTimeRemaining = 0f
+    private var shakeDuration = 0f
+    private var shakeStrength = 0f
+    private var shakeOffsetX = 0f
+    private var shakeOffsetY = 0f
 
     init {
         holder.addCallback(this)
@@ -147,6 +194,7 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
         if (gameState == GameState.RUNNING) {
             gameState = GameState.PAUSED
         }
+        isSettingsOverlayVisible = false
         soundManager.pauseMusic()
         stopGameLoop()
     }
@@ -168,6 +216,21 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
                 touchDownX = event.x
                 touchDownY = event.y
                 touchDownTime = SystemClock.elapsedRealtime()
+                gestureConsumed = false
+                touchStartedOnUi = shouldTreatTouchAsUi(event.x, event.y)
+                return true
+            }
+
+            MotionEvent.ACTION_MOVE -> {
+                if (gameState == GameState.RUNNING && !touchStartedOnUi && !gestureConsumed) {
+                    val swipeThreshold = Utils.dpToPx(context, Constants.SWIPE_DOWN_THRESHOLD_DP)
+                    val deltaX = event.x - touchDownX
+                    val deltaY = event.y - touchDownY
+                    if (deltaY > swipeThreshold && abs(deltaY) > abs(deltaX)) {
+                        player?.queueSlide()
+                        gestureConsumed = true
+                    }
+                }
                 return true
             }
 
@@ -210,10 +273,13 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
         )
 
         titlePaint.textSize = viewHeight * 0.1f
+        panelTitlePaint.textSize = viewHeight * 0.055f
         subtitlePaint.textSize = viewHeight * 0.035f
         buttonTextPaint.textSize = viewHeight * 0.04f
         hudPaint.textSize = viewHeight * 0.05f
         hudSecondaryPaint.textSize = viewHeight * 0.03f
+        toggleLabelPaint.textSize = viewHeight * 0.034f
+        toggleValuePaint.textSize = viewHeight * 0.028f
 
         val buttonWidth = viewWidth * Constants.MENU_BUTTON_WIDTH_RATIO
         val buttonHeight = viewHeight * Constants.MENU_BUTTON_HEIGHT_RATIO
@@ -224,12 +290,51 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
             viewHeight * 0.58f + buttonHeight
         )
 
-        val pauseSize = viewHeight * 0.09f
+        val iconSize = viewHeight * Constants.HUD_ICON_SIZE_RATIO
         pauseButtonRect.set(
-            viewWidth - pauseSize - viewWidth * 0.03f,
+            viewWidth - iconSize - viewWidth * 0.03f,
             viewHeight * 0.05f,
             viewWidth - viewWidth * 0.03f,
-            viewHeight * 0.05f + pauseSize
+            viewHeight * 0.05f + iconSize
+        )
+        settingsButtonRect.set(
+            viewWidth * 0.03f,
+            viewHeight * 0.05f,
+            viewWidth * 0.03f + iconSize,
+            viewHeight * 0.05f + iconSize
+        )
+
+        val panelWidth = viewWidth * Constants.SETTINGS_PANEL_WIDTH_RATIO
+        val panelHeight = viewHeight * Constants.SETTINGS_PANEL_HEIGHT_RATIO
+        settingsPanelRect.set(
+            viewWidth * 0.5f - panelWidth / 2f,
+            viewHeight * 0.5f - panelHeight / 2f,
+            viewWidth * 0.5f + panelWidth / 2f,
+            viewHeight * 0.5f + panelHeight / 2f
+        )
+
+        val closeWidth = panelWidth * 0.22f
+        val closeHeight = panelHeight * 0.18f
+        settingsCloseButtonRect.set(
+            settingsPanelRect.centerX() - closeWidth / 2f,
+            settingsPanelRect.bottom - closeHeight - panelHeight * 0.1f,
+            settingsPanelRect.centerX() + closeWidth / 2f,
+            settingsPanelRect.bottom - panelHeight * 0.1f
+        )
+
+        val toggleWidth = panelWidth * 0.78f
+        val toggleHeight = panelHeight * 0.2f
+        musicToggleRect.set(
+            settingsPanelRect.centerX() - toggleWidth / 2f,
+            settingsPanelRect.top + panelHeight * 0.26f,
+            settingsPanelRect.centerX() + toggleWidth / 2f,
+            settingsPanelRect.top + panelHeight * 0.26f + toggleHeight
+        )
+        sfxToggleRect.set(
+            settingsPanelRect.centerX() - toggleWidth / 2f,
+            musicToggleRect.bottom + panelHeight * 0.08f,
+            settingsPanelRect.centerX() + toggleWidth / 2f,
+            musicToggleRect.bottom + panelHeight * 0.08f + toggleHeight
         )
 
         player = Player(
@@ -270,6 +375,8 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
     private fun updateAmbient(deltaSeconds: Float) {
         backgroundScroll += width * 0.12f * deltaSeconds
         player?.advanceAnimation(deltaSeconds)
+        updateParticles(deltaSeconds)
+        updateScreenShake(deltaSeconds)
     }
 
     private fun updateGame(deltaSeconds: Float) {
@@ -284,28 +391,63 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
         distanceTravelled += worldSpeed * deltaSeconds
         score = max(score, (distanceTravelled / Constants.SCORE_DISTANCE_DIVISOR).toInt())
 
-        player?.update(deltaSeconds)
+        val frameEvents = player?.update(deltaSeconds)
+        handlePlayerFrameEvents(frameEvents)
         player?.getCollisionBounds(playerBounds)
 
         updateObstacles(deltaSeconds)
+        updateParticles(deltaSeconds)
+        updateScreenShake(deltaSeconds)
 
         if (obstacles.any { it.intersects(playerBounds) }) {
             handleCrash()
         }
     }
 
+    private fun handlePlayerFrameEvents(frameEvents: PlayerFrameEvents?) {
+        val activePlayer = player ?: return
+        val events = frameEvents ?: return
+
+        if (events.jumped) {
+            soundManager.playJump()
+            spawnDustBurst(activePlayer.centerX, activePlayer.feetY, 8, upward = true)
+            startScreenShake(Constants.JUMP_SHAKE_DURATION, Constants.JUMP_SHAKE_STRENGTH)
+        }
+
+        if (events.slideStarted) {
+            spawnDustBurst(activePlayer.centerX - width * 0.02f, activePlayer.feetY, 5, upward = false)
+        }
+
+        if (events.landed) {
+            spawnDustBurst(activePlayer.centerX, activePlayer.feetY, 6, upward = false)
+        }
+    }
+
     private fun updateObstacles(deltaSeconds: Float) {
         obstacleTimerMs += (deltaSeconds * 1000f).toLong()
 
-        val minGap = width * Constants.MIN_OBSTACLE_GAP_RATIO
-        val lastObstacle = obstacles.lastOrNull()
-        val canSpawn = lastObstacle == null || (width + Utils.dpToPx(context, 48f) - lastObstacle.right()) >= minGap
+        if (pendingSpawnQueue.isEmpty()) {
+            pendingSpawnQueue.addAll(buildSpawnPattern())
+        }
 
-        if (obstacleTimerMs >= nextObstacleDelayMs && canSpawn) {
-            val spawnX = width + Utils.dpToPx(context, 48f)
-            obstacles += Obstacle.createRandom(spawnX, groundTop, height, difficultyLevel, random)
-            obstacleTimerMs = 0L
-            nextObstacleDelayMs = computeNextSpawnDelay()
+        val nextSpawn = pendingSpawnQueue.firstOrNull()
+        if (nextSpawn != null) {
+            val spawnX = width + Utils.dpToPx(context, 64f)
+            val minGap = width * max(Constants.MIN_PATTERN_GAP_RATIO, nextSpawn.minGapRatio)
+            val lastObstacle = obstacles.lastOrNull()
+            val hasSafeGap = lastObstacle == null || (spawnX - lastObstacle.right()) >= minGap
+
+            if (obstacleTimerMs >= nextObstacleDelayMs && hasSafeGap) {
+                obstacles += Obstacle.create(nextSpawn.type, spawnX, groundTop, height, random)
+                lastSpawnedType = nextSpawn.type
+                pendingSpawnQueue.removeFirst()
+                obstacleTimerMs = 0L
+                nextObstacleDelayMs = if (pendingSpawnQueue.isNotEmpty()) {
+                    Constants.PATTERN_CHAIN_DELAY_MS + nextSpawn.delayMs
+                } else {
+                    computeNextSpawnDelay() + nextSpawn.delayMs
+                }
+            }
         }
 
         val iterator = obstacles.iterator()
@@ -316,6 +458,86 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
                 iterator.remove()
             }
         }
+    }
+
+    private fun buildSpawnPattern(): List<SpawnInstruction> {
+        val roll = random.nextInt(100)
+        return when {
+            difficultyLevel <= 0 -> {
+                if (roll < 72) {
+                    listOf(singleGroundSpawn(Constants.SAFE_GROUND_GAP_RATIO))
+                } else {
+                    buildGroundDoublePattern()
+                }
+            }
+
+            difficultyLevel == 1 -> {
+                when {
+                    roll < 38 -> listOf(singleGroundSpawn(Constants.SAFE_GROUND_GAP_RATIO))
+                    roll < 70 -> buildGroundDoublePattern()
+                    else -> buildBarrierPattern()
+                }
+            }
+
+            else -> {
+                when {
+                    roll < 28 -> listOf(singleGroundSpawn(Constants.SAFE_GROUND_GAP_RATIO))
+                    roll < 55 -> buildGroundDoublePattern()
+                    roll < 78 -> buildBarrierPattern()
+                    else -> buildRhythmPattern()
+                }
+            }
+        }
+    }
+
+    private fun buildGroundDoublePattern(): List<SpawnInstruction> {
+        val firstType = nextGroundType()
+        val secondType = if (random.nextFloat() < 0.6f) oppositeGroundType(firstType) else nextGroundType()
+        return listOf(
+            SpawnInstruction(firstType, Constants.SAFE_GROUND_GAP_RATIO),
+            SpawnInstruction(secondType, Constants.SAFE_DOUBLE_GAP_RATIO, 40L)
+        )
+    }
+
+    private fun buildBarrierPattern(): List<SpawnInstruction> {
+        if (lastSpawnedType == ObstacleType.MOVING_BARRIER) {
+            return listOf(singleGroundSpawn(Constants.SAFE_BARRIER_GAP_RATIO))
+        }
+
+        return listOf(
+            SpawnInstruction(
+                type = ObstacleType.MOVING_BARRIER,
+                minGapRatio = Constants.SAFE_BARRIER_GAP_RATIO,
+                delayMs = 110L
+            )
+        )
+    }
+
+    private fun buildRhythmPattern(): List<SpawnInstruction> {
+        val firstType = nextGroundType()
+        val secondType = oppositeGroundType(firstType)
+        val thirdType = if (random.nextBoolean()) nextGroundType() else oppositeGroundType(secondType)
+        return listOf(
+            SpawnInstruction(firstType, Constants.SAFE_GROUND_GAP_RATIO),
+            SpawnInstruction(secondType, Constants.SAFE_DOUBLE_GAP_RATIO),
+            SpawnInstruction(thirdType, Constants.SAFE_DOUBLE_GAP_RATIO + 0.04f, 60L)
+        )
+    }
+
+    private fun singleGroundSpawn(gapRatio: Float): SpawnInstruction {
+        return SpawnInstruction(nextGroundType(), gapRatio)
+    }
+
+    private fun nextGroundType(): ObstacleType {
+        return when (lastSpawnedType) {
+            ObstacleType.BLOCK -> if (random.nextFloat() < 0.7f) ObstacleType.SPIKE else ObstacleType.BLOCK
+            ObstacleType.SPIKE -> if (random.nextFloat() < 0.7f) ObstacleType.BLOCK else ObstacleType.SPIKE
+            else -> if (random.nextBoolean()) ObstacleType.BLOCK else ObstacleType.SPIKE
+        }
+    }
+
+    private fun oppositeGroundType(type: ObstacleType): ObstacleType {
+        return if (type == ObstacleType.BLOCK) ObstacleType.SPIKE else ObstacleType.BLOCK
     }
 
     private fun computeNextSpawnDelay(): Long {
@@ -329,8 +551,15 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
     }
 
     private fun handleCrash() {
+        if (gameState == GameState.GAME_OVER) {
+            return
+        }
+
         gameState = GameState.GAME_OVER
+        isSettingsOverlayVisible = false
         soundManager.playCrash()
+        startScreenShake(Constants.CRASH_SHAKE_DURATION, Constants.CRASH_SHAKE_STRENGTH)
+        player?.let { spawnCrashBurst(it.centerX, it.bodyTop + (it.feetY - it.bodyTop) * 0.45f) }
 
         if (score > highScore) {
             highScore = score
@@ -340,6 +569,9 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
 
     private fun startNewRun() {
         obstacles.clear()
+        pendingSpawnQueue.clear()
+        particles.clear()
+        lastSpawnedType = null
         player?.reset(groundTop)
         score = 0
         distanceTravelled = 0f
@@ -348,6 +580,7 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
         obstacleTimerMs = 0L
         worldSpeed = Constants.INITIAL_WORLD_SPEED
         nextObstacleDelayMs = Constants.INITIAL_SPAWN_DELAY_MS
+        isSettingsOverlayVisible = false
         gameState = GameState.RUNNING
         soundManager.startMusic()
     }
@@ -355,6 +588,7 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
     private fun pauseGame() {
         if (gameState == GameState.RUNNING) {
             gameState = GameState.PAUSED
+            isSettingsOverlayVisible = false
             soundManager.pauseMusic()
         }
     }
@@ -362,6 +596,7 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
     private fun resumeGame() {
         if (gameState == GameState.PAUSED) {
             gameState = GameState.RUNNING
+            isSettingsOverlayVisible = false
             soundManager.resumeMusic()
         }
     }
@@ -371,10 +606,16 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
             return
         }
 
+        if (isSettingsOverlayVisible) {
+            handleSettingsTouch(x, y)
+            return
+        }
+
         when (gameState) {
             GameState.START -> {
-                if (Utils.isInside(primaryButtonRect, x, y)) {
-                    startNewRun()
+                when {
+                    Utils.isInside(settingsButtonRect, x, y) -> isSettingsOverlayVisible = true
+                    Utils.isInside(primaryButtonRect, x, y) -> startNewRun()
                 }
             }
 
@@ -383,24 +624,51 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
                     pauseGame()
                     return
                 }
-                handleGameplayGesture(x, y)
+                handleGameplayGesture(releaseX = x, releaseY = y)
             }
 
             GameState.PAUSED -> {
-                if (Utils.isInside(primaryButtonRect, x, y) || Utils.isInside(pauseButtonRect, x, y)) {
-                    resumeGame()
+                when {
+                    Utils.isInside(settingsButtonRect, x, y) -> isSettingsOverlayVisible = true
+                    Utils.isInside(primaryButtonRect, x, y) || Utils.isInside(pauseButtonRect, x, y) -> resumeGame()
                 }
             }
 
             GameState.GAME_OVER -> {
-                if (Utils.isInside(primaryButtonRect, x, y)) {
-                    startNewRun()
+                when {
+                    Utils.isInside(settingsButtonRect, x, y) -> isSettingsOverlayVisible = true
+                    Utils.isInside(primaryButtonRect, x, y) -> startNewRun()
                 }
             }
         }
     }
 
+    private fun handleSettingsTouch(x: Float, y: Float) {
+        when {
+            Utils.isInside(musicToggleRect, x, y) -> {
+                val enabled = !soundManager.isMusicEnabled()
+                soundManager.setMusicEnabled(enabled, shouldPlayImmediately = gameState != GameState.PAUSED)
+            }
+
+            Utils.isInside(sfxToggleRect, x, y) -> {
+                val enabled = !soundManager.isSfxEnabled()
+                soundManager.setSfxEnabled(enabled)
+                if (enabled) {
+                    soundManager.playJump()
+                }
+            }
+
+            Utils.isInside(settingsCloseButtonRect, x, y) || !Utils.isInside(settingsPanelRect, x, y) -> {
+                isSettingsOverlayVisible = false
+            }
+        }
+    }
+
     private fun handleGameplayGesture(releaseX: Float, releaseY: Float) {
+        if (touchStartedOnUi || gestureConsumed) {
+            return
+        }
+
         val deltaX = releaseX - touchDownX
         val deltaY = releaseY - touchDownY
         val gestureDuration = SystemClock.elapsedRealtime() - touchDownTime
@@ -408,16 +676,86 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
 
         val didSlide = deltaY > swipeThreshold && abs(deltaY) > abs(deltaX)
         if (didSlide) {
-            player?.slide()
+            player?.queueSlide()
+            gestureConsumed = true
             return
         }
 
         if (gestureDuration <= Constants.INPUT_TAP_MAX_DURATION_MS || abs(deltaY) < swipeThreshold) {
-            val jumped = player?.jump() == true
-            if (jumped) {
-                soundManager.playJump()
+            player?.queueJump()
+        }
+    }
+
+    private fun shouldTreatTouchAsUi(x: Float, y: Float): Boolean {
+        return when {
+            isSettingsOverlayVisible -> true
+            gameState == GameState.RUNNING -> Utils.isInside(pauseButtonRect, x, y)
+            else -> Utils.isInside(primaryButtonRect, x, y) || Utils.isInside(settingsButtonRect, x, y)
+        }
+    }
+
+    private fun updateParticles(deltaSeconds: Float) {
+        val iterator = particles.iterator()
+        while (iterator.hasNext()) {
+            val particle = iterator.next()
+            particle.update(deltaSeconds)
+            if (!particle.isAlive) {
+                iterator.remove()
             }
         }
+    }
+
+    private fun updateScreenShake(deltaSeconds: Float) {
+        if (shakeTimeRemaining <= 0f) {
+            shakeOffsetX = 0f
+            shakeOffsetY = 0f
+            return
+        }
+
+        shakeTimeRemaining = (shakeTimeRemaining - deltaSeconds).coerceAtLeast(0f)
+        val intensity = if (shakeDuration == 0f) 0f else (shakeTimeRemaining / shakeDuration) * shakeStrength
+        shakeOffsetX = randomBetween(-intensity, intensity)
+        shakeOffsetY = randomBetween(-intensity, intensity)
+    }
+
+    private fun startScreenShake(duration: Float, strength: Float) {
+        if (strength >= shakeStrength || duration >= shakeTimeRemaining) {
+            shakeDuration = duration
+            shakeTimeRemaining = duration
+            shakeStrength = strength
+        }
+    }
+
+    private fun spawnDustBurst(originX: Float, originY: Float, count: Int, upward: Boolean) {
+        repeat(count) {
+            particles += Particle(
+                x = originX + randomBetween(-width * 0.015f, width * 0.015f),
+                y = originY - randomBetween(0f, height * 0.015f),
+                velocityX = randomBetween(-180f, 120f),
+                velocityY = if (upward) randomBetween(-260f, -120f) else randomBetween(-140f, -30f),
+                radius = randomBetween(height * 0.006f, height * 0.012f),
+                color = Color.parseColor(if (upward) "#E2E8F0" else "#94A3B8"),
+                lifeSeconds = randomBetween(0.22f, 0.38f)
+            )
+        }
+    }
+
+    private fun spawnCrashBurst(originX: Float, originY: Float) {
+        repeat(20) {
+            particles += Particle(
+                x = originX,
+                y = originY,
+                velocityX = randomBetween(-520f, 520f),
+                velocityY = randomBetween(-520f, 150f),
+                radius = randomBetween(height * 0.006f, height * 0.016f),
+                color = if (it % 3 == 0) Color.parseColor("#24C8DB") else Color.parseColor("#F97316"),
+                lifeSeconds = randomBetween(0.28f, 0.56f)
+            )
+        }
+    }
+
+    private fun randomBetween(minValue: Float, maxValue: Float): Float {
+        return minValue + random.nextFloat() * (maxValue - minValue)
     }
 
     private fun renderFrame() {
@@ -434,10 +772,14 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
     }
 
     private fun drawScene(canvas: Canvas) {
+        canvas.save()
+        canvas.translate(shakeOffsetX, shakeOffsetY)
+
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), skyPaint)
         drawBackground(canvas)
         drawGround(canvas)
         obstacles.forEach { it.draw(canvas) }
+        particles.forEach { it.draw(canvas, particlePaint) }
         player?.draw(canvas)
         drawHud(canvas)
 
@@ -447,6 +789,16 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
             GameState.GAME_OVER -> drawGameOverOverlay(canvas)
             GameState.RUNNING -> Unit
         }
+
+        if (gameState != GameState.RUNNING) {
+            drawSettingsButton(canvas)
+        }
+
+        if (isSettingsOverlayVisible) {
+            drawSettingsOverlay(canvas)
+        }
+
+        canvas.restore()
     }
 
     private fun drawBackground(canvas: Canvas) {
@@ -477,7 +829,6 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
             nearX += width * 0.32f
         }
 
-        val sunPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(180, 255, 255, 255) }
         canvas.drawCircle(width * 0.78f, height * 0.2f, height * 0.08f, sunPaint)
     }
 
@@ -542,8 +893,9 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
         drawOverlayPanel(canvas, 0.22f, 0.12f, 0.78f, 0.82f)
         canvas.drawText("Infinity Rush", width * 0.5f, height * 0.28f, titlePaint)
         canvas.drawText("Minimal speed. Endless pressure.", width * 0.5f, height * 0.36f, subtitlePaint)
-        canvas.drawText("Tap to jump", width * 0.5f, height * 0.46f, subtitlePaint)
-        canvas.drawText("Swipe down to slide", width * 0.5f, height * 0.52f, subtitlePaint)
+        canvas.drawText("Tap to jump with input buffering.", width * 0.5f, height * 0.45f, subtitlePaint)
+        canvas.drawText("Swipe down early to queue a slide.", width * 0.5f, height * 0.51f, subtitlePaint)
+        canvas.drawText("Fairer obstacle patterns keep the run readable.", width * 0.5f, height * 0.57f, subtitlePaint)
         canvas.drawText("Beat your best distance and survive the ramp.", width * 0.5f, height * 0.74f, subtitlePaint)
         drawPrimaryButton(canvas, "Play")
     }
@@ -551,7 +903,8 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
     private fun drawPauseOverlay(canvas: Canvas) {
         drawOverlayPanel(canvas, 0.3f, 0.2f, 0.7f, 0.78f)
         canvas.drawText("Paused", width * 0.5f, height * 0.34f, titlePaint)
-        canvas.drawText("Take a breath. The run waits for you.", width * 0.5f, height * 0.44f, subtitlePaint)
+        canvas.drawText("Your momentum is safe.", width * 0.5f, height * 0.44f, subtitlePaint)
+        canvas.drawText("Open settings to tune audio before the next push.", width * 0.5f, height * 0.51f, subtitlePaint)
         drawPrimaryButton(canvas, "Resume")
     }
 
@@ -560,7 +913,7 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
         canvas.drawText("Game Over", width * 0.5f, height * 0.32f, titlePaint)
         canvas.drawText("Final score: $score", width * 0.5f, height * 0.44f, subtitlePaint)
         canvas.drawText("High score: $highScore", width * 0.5f, height * 0.51f, subtitlePaint)
-        canvas.drawText("The speed always comes back stronger.", width * 0.5f, height * 0.7f, subtitlePaint)
+        canvas.drawText("The run is tougher now, but it plays fairer.", width * 0.5f, height * 0.7f, subtitlePaint)
         drawPrimaryButton(canvas, "Restart")
     }
 
@@ -572,15 +925,12 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
         bottomRatio: Float
     ) {
         canvas.drawColor(Color.argb(60, 3, 7, 18))
-        canvas.drawRoundRect(
-            width * leftRatio,
-            height * topRatio,
-            width * rightRatio,
-            height * bottomRatio,
-            height * 0.04f,
-            height * 0.04f,
-            panelPaint
-        )
+        val left = width * leftRatio
+        val top = height * topRatio
+        val right = width * rightRatio
+        val bottom = height * bottomRatio
+        canvas.drawRoundRect(left, top, right, bottom, height * 0.04f, height * 0.04f, panelPaint)
+        canvas.drawRoundRect(left, top, right, bottom, height * 0.04f, height * 0.04f, panelStrokePaint)
     }
 
     private fun drawPrimaryButton(canvas: Canvas, label: String) {
@@ -592,5 +942,89 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
         )
         val textBaseline = primaryButtonRect.centerY() - (buttonTextPaint.descent() + buttonTextPaint.ascent()) / 2f
         canvas.drawText(label, primaryButtonRect.centerX(), textBaseline, buttonTextPaint)
+    }
+
+    private fun drawSettingsButton(canvas: Canvas) {
+        canvas.drawRoundRect(
+            settingsButtonRect,
+            settingsButtonRect.height() * 0.34f,
+            settingsButtonRect.height() * 0.34f,
+            panelPaint
+        )
+        canvas.drawRoundRect(
+            settingsButtonRect,
+            settingsButtonRect.height() * 0.34f,
+            settingsButtonRect.height() * 0.34f,
+            panelStrokePaint
+        )
+
+        val y1 = settingsButtonRect.top + settingsButtonRect.height() * 0.32f
+        val y2 = settingsButtonRect.centerY()
+        val y3 = settingsButtonRect.bottom - settingsButtonRect.height() * 0.32f
+        val left = settingsButtonRect.left + settingsButtonRect.width() * 0.22f
+        val right = settingsButtonRect.right - settingsButtonRect.width() * 0.22f
+        pauseIconPaint.strokeWidth = settingsButtonRect.width() * 0.08f
+        pauseIconPaint.strokeCap = Paint.Cap.ROUND
+
+        canvas.drawLine(left, y1, right, y1, pauseIconPaint)
+        canvas.drawLine(left, y2, right, y2, pauseIconPaint)
+        canvas.drawLine(left, y3, right, y3, pauseIconPaint)
+        canvas.drawCircle(settingsButtonRect.centerX() - settingsButtonRect.width() * 0.08f, y1, settingsButtonRect.width() * 0.08f, pauseIconPaint)
+        canvas.drawCircle(settingsButtonRect.centerX() + settingsButtonRect.width() * 0.1f, y2, settingsButtonRect.width() * 0.08f, pauseIconPaint)
+        canvas.drawCircle(settingsButtonRect.centerX() - settingsButtonRect.width() * 0.02f, y3, settingsButtonRect.width() * 0.08f, pauseIconPaint)
+    }
+
+    private fun drawSettingsOverlay(canvas: Canvas) {
+        canvas.drawColor(Color.argb(90, 2, 6, 16))
+        canvas.drawRoundRect(
+            settingsPanelRect,
+            height * 0.03f,
+            height * 0.03f,
+            panelPaint
+        )
+        canvas.drawRoundRect(
+            settingsPanelRect,
+            height * 0.03f,
+            height * 0.03f,
+            panelStrokePaint
+        )
+
+        canvas.drawText("Settings", settingsPanelRect.centerX(), settingsPanelRect.top + settingsPanelRect.height() * 0.14f, panelTitlePaint)
+        drawToggleRow(canvas, musicToggleRect, "Music", soundManager.isMusicEnabled())
+        drawToggleRow(canvas, sfxToggleRect, "Sound FX", soundManager.isSfxEnabled())
+
+        val closePaint = if (soundManager.isMusicEnabled() || soundManager.isSfxEnabled()) buttonPaint else buttonMutedPaint
+        canvas.drawRoundRect(
+            settingsCloseButtonRect,
+            settingsCloseButtonRect.height() * 0.45f,
+            settingsCloseButtonRect.height() * 0.45f,
+            closePaint
+        )
+        val closeBaseline = settingsCloseButtonRect.centerY() - (buttonTextPaint.descent() + buttonTextPaint.ascent()) / 2f
+        canvas.drawText("Close", settingsCloseButtonRect.centerX(), closeBaseline, buttonTextPaint)
+    }
+
+    private fun drawToggleRow(canvas: Canvas, rect: RectF, label: String, enabled: Boolean) {
+        canvas.drawRoundRect(rect, rect.height() * 0.42f, rect.height() * 0.42f, buttonMutedPaint)
+
+        val pillWidth = rect.width() * 0.28f
+        val pillRect = RectF(
+            rect.right - pillWidth - rect.width() * 0.06f,
+            rect.top + rect.height() * 0.18f,
+            rect.right - rect.width() * 0.06f,
+            rect.bottom - rect.height() * 0.18f
+        )
+        canvas.drawRoundRect(
+            pillRect,
+            pillRect.height() * 0.5f,
+            pillRect.height() * 0.5f,
+            if (enabled) buttonPaint else panelPaint
+        )
+
+        val labelBaseline = rect.centerY() - (toggleLabelPaint.descent() + toggleLabelPaint.ascent()) / 2f
+        canvas.drawText(label, rect.left + rect.width() * 0.07f, labelBaseline, toggleLabelPaint)
+
+        val valueBaseline = pillRect.centerY() - (toggleValuePaint.descent() + toggleValuePaint.ascent()) / 2f
+        canvas.drawText(if (enabled) "On" else "Off", pillRect.centerX(), valueBaseline, toggleValuePaint)
     }
 }

@@ -38,5 +38,28 @@ object Utils {
             .putInt(Constants.HIGH_SCORE_KEY, highScore)
             .apply()
     }
-}
 
+    fun isMusicEnabled(context: Context): Boolean {
+        return context.getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(Constants.MUSIC_ENABLED_KEY, true)
+    }
+
+    fun saveMusicEnabled(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(Constants.MUSIC_ENABLED_KEY, enabled)
+            .apply()
+    }
+
+    fun isSfxEnabled(context: Context): Boolean {
+        return context.getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(Constants.SFX_ENABLED_KEY, true)
+    }
+
+    fun saveSfxEnabled(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(Constants.SFX_ENABLED_KEY, enabled)
+            .apply()
+    }
+}

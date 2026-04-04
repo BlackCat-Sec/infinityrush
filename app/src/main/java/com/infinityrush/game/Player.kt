@@ -6,6 +6,12 @@ import android.graphics.Paint
 import android.graphics.RectF
 import kotlin.math.sin
 
+data class PlayerFrameEvents(
+    val jumped: Boolean = false,
+    val landed: Boolean = false,
+    val slideStarted: Boolean = false
+)
+
 class Player(
     private val startX: Float,
     private val width: Float,
@@ -25,13 +31,25 @@ class Player(
     private var verticalVelocity = 0f
     private var slideTimer = 0f
     private var animationTime = 0f
+    private var coyoteTimer = 0f
+    private var jumpBufferTimer = 0f
+    private var slideBufferTimer = 0f
 
     val x: Float = startX
 
-    private val drawingBounds = RectF()
+    private fun isTouchingGround(): Boolean = y + currentHeight >= floorTop - 1f
 
-    private val isAirborne: Boolean
-        get() = y + currentHeight < floorTop - 1f || verticalVelocity < 0f
+    val isGrounded: Boolean
+        get() = isTouchingGround() && verticalVelocity >= 0f
+
+    val centerX: Float
+        get() = x + width * 0.5f
+
+    val feetY: Float
+        get() = floorTop
+
+    val bodyTop: Float
+        get() = y
 
     fun reset(newFloorTop: Float = floorTop) {
         floorTop = newFloorTop
@@ -40,37 +58,37 @@ class Player(
         verticalVelocity = 0f
         slideTimer = 0f
         animationTime = 0f
+        coyoteTimer = Constants.COYOTE_TIME_SECONDS
+        jumpBufferTimer = 0f
+        slideBufferTimer = 0f
     }
 
-    fun jump(): Boolean {
-        if (isAirborne) {
-            return false
-        }
-
-        slideTimer = 0f
-        currentHeight = standHeight
-        y = floorTop - currentHeight
-        verticalVelocity = Constants.JUMP_VELOCITY
-        return true
+    fun queueJump() {
+        jumpBufferTimer = Constants.JUMP_BUFFER_SECONDS
     }
 
-    fun slide(): Boolean {
-        if (isAirborne || slideTimer > 0f) {
-            return false
-        }
-
-        currentHeight = slideHeight
-        y = floorTop - currentHeight
-        slideTimer = Constants.SLIDE_DURATION_SECONDS
-        return true
+    fun queueSlide() {
+        slideBufferTimer = Constants.SLIDE_BUFFER_SECONDS
     }
 
     fun advanceAnimation(deltaSeconds: Float) {
-        animationTime += deltaSeconds * if (isAirborne) 4f else 10f
+        animationTime += deltaSeconds * if (isGrounded) 10f else 4f
     }
 
-    fun update(deltaSeconds: Float) {
+    fun update(deltaSeconds: Float): PlayerFrameEvents {
+        var jumped = false
+        var landed = false
+        var slideStarted = false
+
         advanceAnimation(deltaSeconds)
+
+        jumpBufferTimer = (jumpBufferTimer - deltaSeconds).coerceAtLeast(0f)
+        slideBufferTimer = (slideBufferTimer - deltaSeconds).coerceAtLeast(0f)
+        coyoteTimer = if (isGrounded) {
+            Constants.COYOTE_TIME_SECONDS
+        } else {
+            (coyoteTimer - deltaSeconds).coerceAtLeast(0f)
+        }
 
         if (slideTimer > 0f) {
             slideTimer -= deltaSeconds
@@ -80,15 +98,42 @@ class Player(
             }
         }
 
-        if (isAirborne) {
+        val groundedAtFrameStart = isGrounded
+        if (!groundedAtFrameStart || verticalVelocity < 0f) {
             verticalVelocity += Constants.GRAVITY * deltaSeconds
             y += verticalVelocity * deltaSeconds
         }
 
         if (y + currentHeight >= floorTop) {
+            if (!groundedAtFrameStart) {
+                landed = true
+            }
             y = floorTop - currentHeight
             verticalVelocity = 0f
         }
+
+        if (jumpBufferTimer > 0f && (isGrounded || coyoteTimer > 0f)) {
+            currentHeight = standHeight
+            slideTimer = 0f
+            y = floorTop - currentHeight
+            verticalVelocity = Constants.JUMP_VELOCITY
+            coyoteTimer = 0f
+            jumpBufferTimer = 0f
+            jumped = true
+            landed = false
+        } else if (slideBufferTimer > 0f && isGrounded && slideTimer <= 0f) {
+            currentHeight = slideHeight
+            y = floorTop - currentHeight
+            slideTimer = Constants.SLIDE_DURATION_SECONDS
+            slideBufferTimer = 0f
+            slideStarted = true
+        }
+
+        return PlayerFrameEvents(
+            jumped = jumped,
+            landed = landed,
+            slideStarted = slideStarted
+        )
     }
 
     fun getCollisionBounds(outRect: RectF) {
@@ -101,7 +146,6 @@ class Player(
     }
 
     fun draw(canvas: Canvas) {
-        drawingBounds.set(x, y, x + width, y + currentHeight)
         val shadowHeight = currentHeight * 0.18f
         canvas.drawOval(
             x + width * 0.1f,
@@ -183,4 +227,3 @@ class Player(
         )
     }
 }
-

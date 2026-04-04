@@ -7,6 +7,8 @@ import android.media.SoundPool
 
 class SoundManager(context: Context) {
     private val appContext = context.applicationContext
+    private var musicEnabled = Utils.isMusicEnabled(appContext)
+    private var sfxEnabled = Utils.isSfxEnabled(appContext)
 
     private val soundPool = SoundPool.Builder()
         .setMaxStreams(4)
@@ -27,6 +29,9 @@ class SoundManager(context: Context) {
     }
 
     fun startMusic() {
+        if (!musicEnabled) {
+            return
+        }
         val player = mediaPlayer ?: return
         if (!player.isPlaying) {
             player.start()
@@ -45,11 +50,35 @@ class SoundManager(context: Context) {
     }
 
     fun playJump() {
-        soundPool.play(jumpSoundId, Constants.SFX_VOLUME, Constants.SFX_VOLUME, 1, 0, 1.08f)
+        if (sfxEnabled) {
+            soundPool.play(jumpSoundId, Constants.SFX_VOLUME, Constants.SFX_VOLUME, 1, 0, 1.08f)
+        }
     }
 
     fun playCrash() {
-        soundPool.play(crashSoundId, Constants.SFX_VOLUME, Constants.SFX_VOLUME, 1, 0, 0.95f)
+        if (sfxEnabled) {
+            soundPool.play(crashSoundId, Constants.SFX_VOLUME, Constants.SFX_VOLUME, 1, 0, 0.95f)
+        }
+    }
+
+    fun isMusicEnabled(): Boolean = musicEnabled
+
+    fun isSfxEnabled(): Boolean = sfxEnabled
+
+    fun setMusicEnabled(enabled: Boolean, shouldPlayImmediately: Boolean) {
+        musicEnabled = enabled
+        Utils.saveMusicEnabled(appContext, enabled)
+
+        if (enabled && shouldPlayImmediately) {
+            startMusic()
+        } else if (!enabled) {
+            pauseMusic()
+        }
+    }
+
+    fun setSfxEnabled(enabled: Boolean) {
+        sfxEnabled = enabled
+        Utils.saveSfxEnabled(appContext, enabled)
     }
 
     fun release() {

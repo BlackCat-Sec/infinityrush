@@ -6,6 +6,8 @@ object Constants {
 
     const val PREFS_NAME = "infinity_rush_prefs"
     const val HIGH_SCORE_KEY = "high_score"
+    const val MUSIC_ENABLED_KEY = "music_enabled"
+    const val SFX_ENABLED_KEY = "sfx_enabled"
 
     const val GROUND_HEIGHT_RATIO = 0.18f
 
@@ -34,16 +36,32 @@ object Constants {
     const val GRAVITY = 3600f
     const val JUMP_VELOCITY = -1450f
     const val SLIDE_DURATION_SECONDS = 0.6f
+    const val COYOTE_TIME_SECONDS = 0.11f
+    const val JUMP_BUFFER_SECONDS = 0.14f
+    const val SLIDE_BUFFER_SECONDS = 0.16f
 
     const val SCORE_DISTANCE_DIVISOR = 18f
 
     const val INPUT_TAP_MAX_DURATION_MS = 220L
     const val SWIPE_DOWN_THRESHOLD_DP = 56f
+    const val PATTERN_CHAIN_DELAY_MS = 180L
+    const val MIN_PATTERN_GAP_RATIO = 0.26f
+    const val SAFE_GROUND_GAP_RATIO = 0.42f
+    const val SAFE_DOUBLE_GAP_RATIO = 0.55f
+    const val SAFE_BARRIER_GAP_RATIO = 0.62f
 
     const val MENU_BUTTON_WIDTH_RATIO = 0.24f
     const val MENU_BUTTON_HEIGHT_RATIO = 0.12f
+    const val HUD_ICON_SIZE_RATIO = 0.09f
+    const val SETTINGS_PANEL_WIDTH_RATIO = 0.34f
+    const val SETTINGS_PANEL_HEIGHT_RATIO = 0.36f
 
     const val MUSIC_VOLUME = 0.4f
     const val SFX_VOLUME = 0.9f
+    const val PARTICLE_GRAVITY = 2100f
+    const val PARTICLE_DRAG = 1.9f
+    const val JUMP_SHAKE_DURATION = 0.08f
+    const val JUMP_SHAKE_STRENGTH = 5f
+    const val CRASH_SHAKE_DURATION = 0.32f
+    const val CRASH_SHAKE_STRENGTH = 22f
 }
-

@@ -46,6 +46,9 @@ class Obstacle private constructor(
     private val tempBounds = RectF()
     private val spikePath = Path()
 
+    val obstacleType: ObstacleType
+        get() = type
+
     fun update(deltaSeconds: Float, worldSpeed: Float) {
         x -= worldSpeed * deltaSeconds
         if (type == ObstacleType.MOVING_BARRIER) {
@@ -144,6 +147,20 @@ class Obstacle private constructor(
     }
 
     companion object {
+        fun create(
+            type: ObstacleType,
+            spawnX: Float,
+            groundTop: Float,
+            viewHeight: Int,
+            random: Random
+        ): Obstacle {
+            return when (type) {
+                ObstacleType.BLOCK -> createBlock(spawnX, groundTop, viewHeight)
+                ObstacleType.SPIKE -> createSpike(spawnX, groundTop, viewHeight)
+                ObstacleType.MOVING_BARRIER -> createMovingBarrier(spawnX, groundTop, viewHeight, random)
+            }
+        }
+
         fun createRandom(
             spawnX: Float,
             groundTop: Float,
@@ -159,11 +176,7 @@ class Obstacle private constructor(
                 availableTypes += ObstacleType.MOVING_BARRIER
             }
 
-            return when (availableTypes.random(random)) {
-                ObstacleType.BLOCK -> createBlock(spawnX, groundTop, viewHeight)
-                ObstacleType.SPIKE -> createSpike(spawnX, groundTop, viewHeight)
-                ObstacleType.MOVING_BARRIER -> createMovingBarrier(spawnX, groundTop, viewHeight, random)
-            }
+            return create(availableTypes.random(random), spawnX, groundTop, viewHeight, random)
         }
 
         private fun createBlock(spawnX: Float, groundTop: Float, viewHeight: Int): Obstacle {
@@ -226,4 +239,3 @@ class Obstacle private constructor(
         }
     }
 }
-
