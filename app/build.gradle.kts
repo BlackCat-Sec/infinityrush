@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.relicrush.game"
+    namespace = "com.infinityrush.game"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.relicrush.game"
+        applicationId = "com.infinityrush.game"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
@@ -53,8 +53,6 @@ kotlin {
 }
 
 dependencies {
-    implementation("com.google.android.gms:play-services-ads:25.1.0")
-    implementation("com.android.billingclient:billing-ktx:8.3.0")
     implementation("androidx.core:core-ktx:1.16.0")
     implementation("androidx.appcompat:appcompat:1.7.0")
 
