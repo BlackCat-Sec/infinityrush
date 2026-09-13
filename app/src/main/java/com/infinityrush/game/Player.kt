@@ -6,6 +6,7 @@ import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Shader
+import android.graphics.Typeface
 import kotlin.math.exp
 import kotlin.math.sin
 
@@ -55,21 +56,29 @@ class Player {
 
     private var isFastDropping = false
 
-    private val bodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#0284C7") }
-    private val hoodiePaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val capPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#DC2626") }
-    private val visorPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#38BDF8") }
-    private val shoePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#F8FAFC") }
+    private val tealHoodiePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val cargoPantsPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#18181B") }
+    private val orangeShoesPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#F97316") }
+    private val whiteSolePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#FFFFFF") }
+    private val backpackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#09090B") }
+    private val cyanGlowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#06B6D4") }
+    private val infinitySymbolPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#22D3EE")
+        textAlign = Paint.Align.CENTER
+        typeface = Typeface.DEFAULT_BOLD
+    }
+    private val skinPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#FED7AA") }
+    private val hairPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#3F2314") }
     private val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(100, 0, 0, 0) }
 
     private val hoverboardPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val hoverboardGlowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(180, 245, 158, 11) }
+    private val hoverboardGlowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(180, 6, 182, 212) }
 
-    private val jetpackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#65A30D") }
+    private val jetpackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#27272A") }
     private val jetFlamePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#F97316") }
 
     private val magnetAuraPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.argb(160, 239, 68, 68)
+        color = Color.argb(160, 6, 182, 212)
         style = Paint.Style.STROKE
         strokeWidth = 6f
     }
@@ -294,7 +303,7 @@ class Player {
             shadowPaint
         )
 
-        // 2. Hoverboard
+        // 2. Sky Glide Hoverboard
         if (hasHoverboard) {
             val hbW = charWidth * 1.55f
             val hbH = charHeight * 0.18f
@@ -302,7 +311,7 @@ class Player {
 
             hoverboardPaint.shader = LinearGradient(
                 screenX - hbW / 2f, hbY, screenX + hbW / 2f, hbY + hbH,
-                Color.parseColor("#F59E0B"), Color.parseColor("#D97706"),
+                Color.parseColor("#06B6D4"), Color.parseColor("#0891B2"),
                 Shader.TileMode.CLAMP
             )
 
@@ -313,7 +322,7 @@ class Player {
             canvas.drawCircle(screenX, hbY + hbH / 2f, hbH * 0.8f, hoverboardGlowPaint)
         }
 
-        // 3. Jetpack
+        // 3. Jetpack Thrusters
         if (hasJetpack) {
             val jpW = charWidth * 0.4f
             canvas.drawRect(screenX - jpW * 1.2f, screenY - charHeight * 0.7f, screenX - jpW * 0.2f, screenY - charHeight * 0.2f, jetpackPaint)
@@ -337,17 +346,17 @@ class Player {
             screenY
         )
 
-        hoodiePaint.shader = LinearGradient(
+        // Teal Hoodie Gradient Shader
+        tealHoodiePaint.shader = LinearGradient(
             playerRect.left, playerRect.top, playerRect.right, playerRect.bottom,
-            Color.parseColor("#EA580C"), Color.parseColor("#C2410C"),
+            Color.parseColor("#14B8A6"), Color.parseColor("#0D9488"),
             Shader.TileMode.CLAMP
         )
 
         if (isSliding) {
-            canvas.drawRoundRect(playerRect, charHeight * 0.5f, charHeight * 0.5f, hoodiePaint)
-            canvas.drawCircle(screenX + charWidth * 0.25f, screenY - charHeight * 0.5f, charHeight * 0.3f, visorPaint)
+            canvas.drawRoundRect(playerRect, charHeight * 0.5f, charHeight * 0.5f, tealHoodiePaint)
         } else {
-            val headRadius = charWidth * 0.32f
+            val headRadius = charWidth * 0.30f
             val headCx = screenX
             val headCy = playerRect.top + headRadius * 1.1f
 
@@ -358,22 +367,31 @@ class Player {
                 playerRect.bottom - charHeight * 0.32f
             )
 
-            // Cap
-            canvas.drawCircle(headCx, headCy, headRadius, capPaint)
-
-            // Hoodie Torso
-            canvas.drawRoundRect(torso, charWidth * 0.15f, charWidth * 0.15f, hoodiePaint)
-
-            // Visor Glass
-            val visorRect = RectF(
-                headCx - headRadius * 0.7f,
-                headCy - headRadius * 0.3f,
-                headCx + headRadius * 0.8f,
-                headCy + headRadius * 0.2f
+            // 5. Black Futuristic Backpack on Back
+            val backpackRect = RectF(
+                screenX - charWidth * 0.28f,
+                torso.top + charHeight * 0.05f,
+                screenX + charWidth * 0.28f,
+                torso.bottom - charHeight * 0.05f
             )
-            canvas.drawRoundRect(visorRect, headRadius * 0.2f, headRadius * 0.2f, visorPaint)
+            canvas.drawRoundRect(backpackRect, charWidth * 0.1f, charWidth * 0.1f, backpackPaint)
 
-            // Dynamic Running Legs & Sneakers
+            // Glowing Cyan Strips
+            canvas.drawRect(backpackRect.left + charWidth * 0.05f, backpackRect.top + charHeight * 0.08f, backpackRect.right - charWidth * 0.05f, backpackRect.top + charHeight * 0.12f, cyanGlowPaint)
+
+            // Glowing Infinity Symbol (∞) on Backpack
+            infinitySymbolPaint.textSize = charWidth * 0.35f
+            val infBaseline = backpackRect.centerY() - (infinitySymbolPaint.descent() + infinitySymbolPaint.ascent()) / 2f
+            canvas.drawText("∞", backpackRect.centerX(), infBaseline, infinitySymbolPaint)
+
+            // 6. Hair & Head
+            canvas.drawCircle(headCx, headCy, headRadius * 1.05f, hairPaint)
+            canvas.drawCircle(headCx, headCy + headRadius * 0.1f, headRadius * 0.85f, skinPaint)
+
+            // 7. Teal Hoodie Torso
+            canvas.drawRoundRect(torso, charWidth * 0.15f, charWidth * 0.15f, tealHoodiePaint)
+
+            // 8. Dark Cargo Jogger Pants & Legs
             val stride = sin(animationTime * 1.5f) * charWidth * 0.22f
             val legW = charWidth * 0.28f
             val leftLeg = RectF(
@@ -388,19 +406,30 @@ class Player {
                 screenX + charWidth * 0.35f - stride * 0.3f,
                 playerRect.bottom
             )
-            canvas.drawRoundRect(leftLeg, legW * 0.3f, legW * 0.3f, bodyPaint)
-            canvas.drawRoundRect(rightLeg, legW * 0.3f, legW * 0.3f, bodyPaint)
+            canvas.drawRoundRect(leftLeg, legW * 0.3f, legW * 0.3f, cargoPantsPaint)
+            canvas.drawRoundRect(rightLeg, legW * 0.3f, legW * 0.3f, cargoPantsPaint)
 
-            // Sneakers
+            // 9. Orange & White Running Shoes
             canvas.drawRoundRect(
-                leftLeg.left, leftLeg.bottom - legW * 0.35f,
-                leftLeg.right + legW * 0.2f, leftLeg.bottom,
-                legW * 0.15f, legW * 0.15f, shoePaint
+                leftLeg.left, leftLeg.bottom - legW * 0.38f,
+                leftLeg.right + legW * 0.22f, leftLeg.bottom,
+                legW * 0.15f, legW * 0.15f, orangeShoesPaint
             )
             canvas.drawRoundRect(
-                rightLeg.left, rightLeg.bottom - legW * 0.35f,
-                rightLeg.right + legW * 0.2f, rightLeg.bottom,
-                legW * 0.15f, legW * 0.15f, shoePaint
+                leftLeg.left, leftLeg.bottom - legW * 0.12f,
+                leftLeg.right + legW * 0.22f, leftLeg.bottom,
+                legW * 0.08f, legW * 0.08f, whiteSolePaint
+            )
+
+            canvas.drawRoundRect(
+                rightLeg.left, rightLeg.bottom - legW * 0.38f,
+                rightLeg.right + legW * 0.22f, rightLeg.bottom,
+                legW * 0.15f, legW * 0.15f, orangeShoesPaint
+            )
+            canvas.drawRoundRect(
+                rightLeg.left, rightLeg.bottom - legW * 0.12f,
+                rightLeg.right + legW * 0.22f, rightLeg.bottom,
+                legW * 0.08f, legW * 0.08f, whiteSolePaint
             )
         }
     }

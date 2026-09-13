@@ -4,7 +4,6 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
-import android.graphics.RectF
 import android.graphics.Typeface
 import kotlin.math.abs
 import kotlin.math.cos
@@ -31,7 +30,7 @@ class Collectible(
     private val bodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = when (type) {
             CollectibleType.COIN -> Color.parseColor("#F59E0B")
-            CollectibleType.HOVERBOARD -> Color.parseColor("#10B981")
+            CollectibleType.HOVERBOARD -> Color.parseColor("#06B6D4")
             CollectibleType.JETPACK -> Color.parseColor("#84CC16")
             CollectibleType.MAGNET -> Color.parseColor("#EF4444")
             CollectibleType.MULTIPLIER -> Color.parseColor("#A855F7")
@@ -40,7 +39,7 @@ class Collectible(
     private val detailPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = when (type) {
             CollectibleType.COIN -> Color.parseColor("#FDE68A")
-            CollectibleType.HOVERBOARD -> Color.parseColor("#D1FAE5")
+            CollectibleType.HOVERBOARD -> Color.parseColor("#CFFAFE")
             CollectibleType.JETPACK -> Color.parseColor("#ECFCCB")
             CollectibleType.MAGNET -> Color.parseColor("#F87171")
             CollectibleType.MULTIPLIER -> Color.parseColor("#F3E8FF")
@@ -48,12 +47,17 @@ class Collectible(
     }
     private val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = when (type) {
-            CollectibleType.COIN -> Color.argb(80, 245, 158, 11)
-            CollectibleType.HOVERBOARD -> Color.argb(90, 16, 185, 129)
-            CollectibleType.JETPACK -> Color.argb(90, 132, 204, 22)
-            CollectibleType.MAGNET -> Color.argb(90, 239, 68, 68)
-            CollectibleType.MULTIPLIER -> Color.argb(90, 168, 85, 247)
+            CollectibleType.COIN -> Color.argb(90, 245, 158, 11)
+            CollectibleType.HOVERBOARD -> Color.argb(100, 6, 182, 212)
+            CollectibleType.JETPACK -> Color.argb(100, 132, 204, 22)
+            CollectibleType.MAGNET -> Color.argb(100, 239, 68, 68)
+            CollectibleType.MULTIPLIER -> Color.argb(100, 168, 85, 247)
         }
+    }
+    private val infinityMarkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#78350F")
+        textAlign = Paint.Align.CENTER
+        typeface = Typeface.DEFAULT_BOLD
     }
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
@@ -108,7 +112,7 @@ class Collectible(
         canvas.drawCircle(screenX, screenY, radius * 1.35f, glowPaint)
 
         when (type) {
-            CollectibleType.COIN -> drawCoin(canvas, screenX, screenY, radius)
+            CollectibleType.COIN -> drawInfinityCoin(canvas, screenX, screenY, radius)
             CollectibleType.HOVERBOARD -> drawTextIcon(canvas, screenX, screenY, radius, "🛹")
             CollectibleType.JETPACK -> drawTextIcon(canvas, screenX, screenY, radius, "🚀")
             CollectibleType.MAGNET -> drawTextIcon(canvas, screenX, screenY, radius, "U")
@@ -116,15 +120,18 @@ class Collectible(
         }
     }
 
-    private fun drawCoin(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
+    private fun drawInfinityCoin(canvas: Canvas, cx: Float, cy: Float, radius: Float) {
         val scaleX = abs(cos(animationPhase * 0.8f)).coerceAtLeast(0.2f)
         canvas.save()
         canvas.translate(cx, cy)
         canvas.scale(scaleX, 1f)
 
         canvas.drawCircle(0f, 0f, radius, bodyPaint)
-        canvas.drawCircle(0f, 0f, radius * 0.65f, detailPaint)
-        canvas.drawCircle(0f, 0f, radius * 0.4f, bodyPaint)
+        canvas.drawCircle(0f, 0f, radius * 0.7f, detailPaint)
+
+        infinityMarkPaint.textSize = radius * 0.85f
+        val baseline = - (infinityMarkPaint.descent() + infinityMarkPaint.ascent()) / 2f
+        canvas.drawText("∞", 0f, baseline, infinityMarkPaint)
 
         canvas.restore()
     }
