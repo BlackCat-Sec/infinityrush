@@ -49,7 +49,17 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
     private val collectibles = mutableListOf<Collectible>()
     private val stars = mutableListOf<Star>()
 
+    // Top HUD Rects
     private val pauseButtonRect = RectF()
+    private val levelBadgeRect = RectF()
+    private val coinHudRect = RectF()
+    private val scoreHudRect = RectF()
+
+    // Bottom HUD Power-Up Status Rects
+    private val magnetStatusRect = RectF()
+    private val shieldStatusRect = RectF()
+
+    // Menu Action Rects
     private val primaryButtonRect = RectF()
     private val settingsButtonRect = RectF()
     private val settingsPanelRect = RectF()
@@ -57,19 +67,20 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
     private val musicToggleRect = RectF()
     private val sfxToggleRect = RectF()
 
-    private val btnLeftRect = RectF()
-    private val btnRightRect = RectF()
-    private val btnJumpRect = RectF()
-    private val btnSlideRect = RectF()
-    private val btnHoverboardRect = RectF()
+    // Bottom Navigation Bar Rects for Main Menu
+    private val charactersNavRect = RectF()
+    private val boardsNavRect = RectF()
+    private val missionsNavRect = RectF()
+    private val shopNavRect = RectF()
 
+    // Paints
     private val skyPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val sunPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val starPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
     private val tunnelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#1E1B4B") }
     private val groundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#0F172A") }
     private val railPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#38BDF8")
+        color = Color.parseColor("#06B6D4")
         strokeWidth = 5f
     }
     private val sleeperPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -77,12 +88,13 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
         strokeWidth = 4f
     }
 
-    private val panelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(190, 10, 15, 30) }
-    private val panelStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.argb(140, 6, 182, 212)
+    private val glassPanelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(195, 15, 23, 42) }
+    private val glassStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.argb(160, 6, 182, 212)
         style = Paint.Style.STROKE
         strokeWidth = Utils.dpToPx(context, 2f)
     }
+
     private val buttonPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#06B6D4") }
     private val buttonMutedPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#334155") }
     private val buttonTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -90,48 +102,44 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
         textAlign = Paint.Align.CENTER
         typeface = Typeface.DEFAULT_BOLD
     }
-    private val touchButtonPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(150, 15, 23, 42) }
-    private val touchButtonStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.argb(180, 6, 182, 212)
-        style = Paint.Style.STROKE
-        strokeWidth = Utils.dpToPx(context, 2f)
-    }
-    private val touchButtonTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#E0F2FE")
-        textAlign = Paint.Align.CENTER
-        typeface = Typeface.DEFAULT_BOLD
-    }
 
-    private val panelTitlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    private val logoTitlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
         textAlign = Paint.Align.CENTER
         typeface = Typeface.DEFAULT_BOLD
     }
-    private val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    private val headerTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
         textAlign = Paint.Align.CENTER
         typeface = Typeface.DEFAULT_BOLD
     }
     private val subtitlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#BAE6FD")
+        color = Color.parseColor("#38BDF8")
         textAlign = Paint.Align.CENTER
-    }
-    private val hudPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.WHITE
-        textAlign = Paint.Align.LEFT
         typeface = Typeface.DEFAULT_BOLD
     }
-    private val hudSecondaryPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#CBD5E1")
-        textAlign = Paint.Align.LEFT
+
+    private val hudScorePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        textAlign = Paint.Align.RIGHT
+        typeface = Typeface.DEFAULT_BOLD
     }
-    private val coinHudPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    private val hudDistPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#38BDF8")
+        textAlign = Paint.Align.RIGHT
+    }
+    private val hudCoinPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.parseColor("#FBBF24")
         textAlign = Paint.Align.CENTER
         typeface = Typeface.DEFAULT_BOLD
     }
-    private val newBestBadgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#F59E0B")
+    private val badgeTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#E0F2FE")
+        textAlign = Paint.Align.CENTER
+        typeface = Typeface.DEFAULT_BOLD
+    }
+    private val panelTitlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
         textAlign = Paint.Align.CENTER
         typeface = Typeface.DEFAULT_BOLD
     }
@@ -142,6 +150,12 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
     }
     private val toggleValuePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
+        textAlign = Paint.Align.CENTER
+        typeface = Typeface.DEFAULT_BOLD
+    }
+
+    private val newBestBadgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#F59E0B")
         textAlign = Paint.Align.CENTER
         typeface = Typeface.DEFAULT_BOLD
     }
@@ -303,33 +317,6 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
                         gestureConsumed = true
                     }
                     lastTapTime = now
-
-                    if (!gestureConsumed) {
-                        when {
-                            Utils.isInside(btnLeftRect, event.x, event.y) -> {
-                                if (player.moveLeft()) soundManager.playLaneSwitch()
-                                gestureConsumed = true
-                            }
-                            Utils.isInside(btnRightRect, event.x, event.y) -> {
-                                if (player.moveRight()) soundManager.playLaneSwitch()
-                                gestureConsumed = true
-                            }
-                            Utils.isInside(btnJumpRect, event.x, event.y) -> {
-                                player.queueJump()
-                                gestureConsumed = true
-                            }
-                            Utils.isInside(btnSlideRect, event.x, event.y) -> {
-                                player.queueSlide()
-                                soundManager.playSlide()
-                                gestureConsumed = true
-                            }
-                            Utils.isInside(btnHoverboardRect, event.x, event.y) -> {
-                                player.activateHoverboard()
-                                soundManager.playHoverboard()
-                                gestureConsumed = true
-                            }
-                        }
-                    }
                 }
                 return true
             }
@@ -403,7 +390,7 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
         )
 
         val sunCenterX = viewWidth * 0.78f
-        val sunCenterY = viewHeight * 0.20f
+        val sunCenterY = viewHeight * 0.18f
         val sunRadius = viewHeight * 0.12f
         sunPaint.shader = RadialGradient(
             sunCenterX,
@@ -418,88 +405,71 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
             Shader.TileMode.CLAMP
         )
 
-        titlePaint.textSize = viewHeight * 0.095f
-        panelTitlePaint.textSize = viewHeight * 0.055f
-        subtitlePaint.textSize = viewHeight * 0.035f
-        buttonTextPaint.textSize = viewHeight * 0.04f
-        touchButtonTextPaint.textSize = viewHeight * 0.03f
-        hudPaint.textSize = viewHeight * 0.048f
-        hudSecondaryPaint.textSize = viewHeight * 0.03f
-        coinHudPaint.textSize = viewHeight * 0.045f
-        newBestBadgePaint.textSize = viewHeight * 0.036f
-        toggleLabelPaint.textSize = viewHeight * 0.034f
-        toggleValuePaint.textSize = viewHeight * 0.028f
-        tapPromptPaint.textSize = viewHeight * 0.048f
+        logoTitlePaint.textSize = viewHeight * 0.055f
+        headerTextPaint.textSize = viewHeight * 0.045f
+        subtitlePaint.textSize = viewHeight * 0.024f
+        buttonTextPaint.textSize = viewHeight * 0.028f
+        hudScorePaint.textSize = viewHeight * 0.032f
+        hudDistPaint.textSize = viewHeight * 0.022f
+        hudCoinPaint.textSize = viewHeight * 0.028f
+        badgeTextPaint.textSize = viewHeight * 0.022f
+        panelTitlePaint.textSize = viewHeight * 0.032f
+        toggleLabelPaint.textSize = viewHeight * 0.024f
+        toggleValuePaint.textSize = viewHeight * 0.020f
+        newBestBadgePaint.textSize = viewHeight * 0.026f
+        tapPromptPaint.textSize = viewHeight * 0.028f
 
-        val buttonWidth = viewWidth * Constants.MENU_BUTTON_WIDTH_RATIO
-        val buttonHeight = viewHeight * Constants.MENU_BUTTON_HEIGHT_RATIO
-        primaryButtonRect.set(
-            viewWidth * 0.5f - buttonWidth / 2f,
-            viewHeight * 0.62f,
-            viewWidth * 0.5f + buttonWidth / 2f,
-            viewHeight * 0.62f + buttonHeight
-        )
+        // Top HUD Layout
+        val topMargin = viewHeight * 0.035f
+        val edgeMargin = viewWidth * 0.04f
+        val iconSize = viewHeight * 0.055f
 
-        val iconSize = viewHeight * Constants.HUD_ICON_SIZE_RATIO
-        pauseButtonRect.set(
-            viewWidth - iconSize - viewWidth * 0.03f,
-            viewHeight * 0.05f,
-            viewWidth - viewWidth * 0.03f,
-            viewHeight * 0.05f + iconSize
-        )
-        settingsButtonRect.set(
-            viewWidth * 0.03f,
-            viewHeight * 0.05f,
-            viewWidth * 0.03f + iconSize,
-            viewHeight * 0.05f + iconSize
-        )
+        pauseButtonRect.set(edgeMargin, topMargin, edgeMargin + iconSize, topMargin + iconSize)
+        levelBadgeRect.set(pauseButtonRect.right + viewWidth * 0.02f, topMargin, pauseButtonRect.right + viewWidth * 0.18f, topMargin + iconSize)
 
-        val btnW = viewWidth * 0.12f
-        val btnH = viewHeight * 0.11f
-        val marginX = viewWidth * 0.03f
-        val marginY = viewHeight * 0.04f
+        val coinW = viewWidth * 0.28f
+        coinHudRect.set(viewWidth * 0.5f - coinW / 2f, topMargin, viewWidth * 0.5f + coinW / 2f, topMargin + iconSize)
 
-        btnLeftRect.set(marginX, viewHeight - btnH - marginY, marginX + btnW, viewHeight - marginY)
-        btnRightRect.set(btnLeftRect.right + viewWidth * 0.015f, viewHeight - btnH - marginY, btnLeftRect.right + viewWidth * 0.015f + btnW, viewHeight - marginY)
+        val scoreW = viewWidth * 0.32f
+        scoreHudRect.set(viewWidth - edgeMargin - scoreW, topMargin, viewWidth - edgeMargin, topMargin + iconSize)
 
-        btnSlideRect.set(viewWidth - marginX - btnW, viewHeight - btnH - marginY, viewWidth - marginX, viewHeight - marginY)
-        btnJumpRect.set(btnSlideRect.left - viewWidth * 0.015f - btnW, viewHeight - btnH - marginY, btnSlideRect.left - viewWidth * 0.015f, viewHeight - marginY)
+        settingsButtonRect.set(viewWidth - edgeMargin - iconSize, topMargin, viewWidth - edgeMargin, topMargin + iconSize)
 
-        val hbW = viewWidth * 0.18f
-        btnHoverboardRect.set(viewWidth * 0.5f - hbW / 2f, viewHeight - btnH - marginY, viewWidth * 0.5f + hbW / 2f, viewHeight - marginY)
+        // Bottom Power-Up HUD Status Badges
+        val statusW = viewWidth * 0.16f
+        val statusH = viewHeight * 0.07f
+        val bottomMargin = viewHeight * 0.04f
 
-        val panelWidth = viewWidth * Constants.SETTINGS_PANEL_WIDTH_RATIO
-        val panelHeight = viewHeight * Constants.SETTINGS_PANEL_HEIGHT_RATIO
-        settingsPanelRect.set(
-            viewWidth * 0.5f - panelWidth / 2f,
-            viewHeight * 0.5f - panelHeight / 2f,
-            viewWidth * 0.5f + panelWidth / 2f,
-            viewHeight * 0.5f + panelHeight / 2f
-        )
+        magnetStatusRect.set(edgeMargin, viewHeight - bottomMargin - statusH, edgeMargin + statusW, viewHeight - bottomMargin)
+        shieldStatusRect.set(viewWidth - edgeMargin - statusW, viewHeight - bottomMargin - statusH, viewWidth - edgeMargin, viewHeight - bottomMargin)
 
-        val closeWidth = panelWidth * 0.24f
-        val closeHeight = panelHeight * 0.18f
-        settingsCloseButtonRect.set(
-            settingsPanelRect.centerX() - closeWidth / 2f,
-            settingsPanelRect.bottom - closeHeight - panelHeight * 0.08f,
-            settingsPanelRect.centerX() + closeWidth / 2f,
-            settingsPanelRect.bottom - panelHeight * 0.08f
-        )
+        // Main Menu Bottom Nav Bar
+        val primaryW = viewWidth * 0.45f
+        val primaryH = viewHeight * 0.065f
+        primaryButtonRect.set(viewWidth * 0.5f - primaryW / 2f, viewHeight * 0.82f, viewWidth * 0.5f + primaryW / 2f, viewHeight * 0.82f + primaryH)
 
-        val toggleWidth = panelWidth * 0.78f
+        val navW = viewWidth * 0.18f
+        val navH = viewHeight * 0.055f
+        val navY = viewHeight * 0.90f
+
+        charactersNavRect.set(viewWidth * 0.08f, navY, viewWidth * 0.08f + navW, navY + navH)
+        boardsNavRect.set(viewWidth * 0.29f, navY, viewWidth * 0.29f + navW, navY + navH)
+        missionsNavRect.set(viewWidth * 0.53f, navY, viewWidth * 0.53f + navW, navY + navH)
+        shopNavRect.set(viewWidth * 0.74f, navY, viewWidth * 0.74f + navW, navY + navH)
+
+        // Settings Panel
+        val panelWidth = viewWidth * 0.78f
+        val panelHeight = viewHeight * 0.38f
+        settingsPanelRect.set(viewWidth * 0.5f - panelWidth / 2f, viewHeight * 0.5f - panelHeight / 2f, viewWidth * 0.5f + panelWidth / 2f, viewHeight * 0.5f + panelHeight / 2f)
+
+        val closeWidth = panelWidth * 0.28f
+        val closeHeight = panelHeight * 0.16f
+        settingsCloseButtonRect.set(settingsPanelRect.centerX() - closeWidth / 2f, settingsPanelRect.bottom - closeHeight - panelHeight * 0.08f, settingsPanelRect.centerX() + closeWidth / 2f, settingsPanelRect.bottom - panelHeight * 0.08f)
+
+        val toggleWidth = panelWidth * 0.82f
         val toggleHeight = panelHeight * 0.2f
-        musicToggleRect.set(
-            settingsPanelRect.centerX() - toggleWidth / 2f,
-            settingsPanelRect.top + panelHeight * 0.26f,
-            settingsPanelRect.centerX() + toggleWidth / 2f,
-            settingsPanelRect.top + panelHeight * 0.26f + toggleHeight
-        )
-        sfxToggleRect.set(
-            settingsPanelRect.centerX() - toggleWidth / 2f,
-            musicToggleRect.bottom + panelHeight * 0.08f,
-            settingsPanelRect.centerX() + toggleWidth / 2f,
-            musicToggleRect.bottom + panelHeight * 0.08f + toggleHeight
-        )
+        musicToggleRect.set(settingsPanelRect.centerX() - toggleWidth / 2f, settingsPanelRect.top + panelHeight * 0.26f, settingsPanelRect.centerX() + toggleWidth / 2f, settingsPanelRect.top + panelHeight * 0.26f + toggleHeight)
+        sfxToggleRect.set(settingsPanelRect.centerX() - toggleWidth / 2f, musicToggleRect.bottom + panelHeight * 0.08f, settingsPanelRect.centerX() + toggleWidth / 2f, musicToggleRect.bottom + panelHeight * 0.08f + toggleHeight)
 
         player.reset()
         initStartScreenPreview()
@@ -959,7 +929,7 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
             GameState.START -> drawStartOverlay(canvas)
             GameState.PAUSED -> drawPauseOverlay(canvas)
             GameState.GAME_OVER -> drawGameOverOverlay(canvas)
-            GameState.RUNNING -> drawTouchControls(canvas)
+            GameState.RUNNING -> Unit
         }
 
         if (gameState != GameState.RUNNING) {
@@ -983,7 +953,6 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
         }
 
         canvas.drawCircle(width * 0.78f, height * 0.20f, height * 0.12f, sunPaint)
-
         canvas.drawRect(0f, vpY - height * 0.12f, width.toFloat(), vpY, tunnelPaint)
     }
 
@@ -1016,127 +985,106 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
     }
 
     private fun drawHud(canvas: Canvas) {
-        hudPaint.textAlign = Paint.Align.LEFT
-        hudSecondaryPaint.textAlign = Paint.Align.LEFT
+        // Top HUD Layout matching Concept Images: Top-Left Level & Pause, Top-Center Coins, Top-Right Score & Distance
+        // 1. Top-Left: Pause & Level Badge
+        canvas.drawRoundRect(pauseButtonRect, pauseButtonRect.height() * 0.5f, pauseButtonRect.height() * 0.5f, glassPanelPaint)
+        canvas.drawRoundRect(pauseButtonRect, pauseButtonRect.height() * 0.5f, pauseButtonRect.height() * 0.5f, glassStrokePaint)
+        val pauseCenterY = pauseButtonRect.centerY()
+        val barW = pauseButtonRect.width() * 0.14f
+        val barH = pauseButtonRect.height() * 0.38f
+        canvas.drawRect(pauseButtonRect.centerX() - barW * 1.2f, pauseCenterY - barH / 2f, pauseButtonRect.centerX() - barW * 0.2f, pauseCenterY + barH / 2f, pauseIconPaint)
+        canvas.drawRect(pauseButtonRect.centerX() + barW * 0.2f, pauseCenterY - barH / 2f, pauseButtonRect.centerX() + barW * 1.2f, pauseCenterY + barH / 2f, pauseIconPaint)
 
-        val multText = if (player.multiplierTimer > 0f) " (2X!)" else ""
-        canvas.drawText("Score $score$multText", width * 0.04f, height * 0.09f, hudPaint)
-        canvas.drawText("Best $highScore", width * 0.04f, height * 0.14f, hudSecondaryPaint)
+        canvas.drawRoundRect(levelBadgeRect, levelBadgeRect.height() * 0.4f, levelBadgeRect.height() * 0.4f, glassPanelPaint)
+        canvas.drawRoundRect(levelBadgeRect, levelBadgeRect.height() * 0.4f, levelBadgeRect.height() * 0.4f, glassStrokePaint)
+        val badgeBaseline = levelBadgeRect.centerY() - (badgeTextPaint.descent() + badgeTextPaint.ascent()) / 2f
+        canvas.drawText("Lv 12", levelBadgeRect.centerX(), badgeBaseline, badgeTextPaint)
 
-        canvas.drawText("Coins $totalCoins", width * 0.5f, height * 0.09f, coinHudPaint)
+        // 2. Top-Center: Infinity Coins Bank
+        canvas.drawRoundRect(coinHudRect, coinHudRect.height() * 0.45f, coinHudRect.height() * 0.45f, glassPanelPaint)
+        canvas.drawRoundRect(coinHudRect, coinHudRect.height() * 0.45f, coinHudRect.height() * 0.45f, glassStrokePaint)
+        val coinBaseline = coinHudRect.centerY() - (hudCoinPaint.descent() + hudCoinPaint.ascent()) / 2f
+        canvas.drawText("Coins $totalCoins", coinHudRect.centerX(), coinBaseline, hudCoinPaint)
 
+        // 3. Top-Right: Score, Distance & Multiplier
+        val scoreBaseline = scoreHudRect.top + scoreHudRect.height() * 0.45f
+        val multText = if (player.multiplierTimer > 0f) " x2" else ""
+        canvas.drawText("$score$multText", scoreHudRect.right, scoreBaseline, hudScorePaint)
+
+        val distMeters = distanceTravelled.toInt()
+        canvas.drawText("$distMeters m", scoreHudRect.right, scoreHudRect.bottom, hudDistPaint)
+
+        // 4. Bottom Active Power-Up Badges
         if (gameState == GameState.RUNNING) {
-            var pBarY = height * 0.13f
-            val barW = width * 0.18f
-            val barH = height * 0.018f
-            val barLeft = width * 0.5f - barW / 2f
-
-            if (player.hasHoverboard) {
-                drawPowerupBar(canvas, barLeft, pBarY, barW, barH, player.hoverboardTimer / Constants.HOVERBOARD_DURATION_SECONDS, "HOVERBOARD", Color.parseColor("#F59E0B"))
-                pBarY += barH + height * 0.012f
-            }
             if (player.magnetTimer > 0f) {
-                drawPowerupBar(canvas, barLeft, pBarY, barW, barH, player.magnetTimer / Constants.MAGNET_DURATION_SECONDS, "MAGNET", Color.parseColor("#EF4444"))
-                pBarY += barH + height * 0.012f
+                drawPowerupStatusBadge(canvas, magnetStatusRect, "MAGNET", player.magnetTimer / Constants.MAGNET_DURATION_SECONDS, Color.parseColor("#EF4444"))
             }
-            if (player.multiplierTimer > 0f) {
-                drawPowerupBar(canvas, barLeft, pBarY, barW, barH, player.multiplierTimer / Constants.MULTIPLIER_DURATION_SECONDS, "2X SCORE", Color.parseColor("#A855F7"))
+            if (player.hasHoverboard) {
+                drawPowerupStatusBadge(canvas, shieldStatusRect, "GLIDE", player.hoverboardTimer / Constants.HOVERBOARD_DURATION_SECONDS, Color.parseColor("#06B6D4"))
             }
-        }
-
-        if (gameState == GameState.RUNNING) {
-            canvas.drawRoundRect(
-                pauseButtonRect,
-                pauseButtonRect.height() * 0.3f,
-                pauseButtonRect.height() * 0.3f,
-                panelPaint
-            )
-            val barWidth = pauseButtonRect.width() * 0.14f
-            val insetX = pauseButtonRect.width() * 0.32f
-            val insetY = pauseButtonRect.height() * 0.24f
-            canvas.drawRoundRect(
-                pauseButtonRect.left + insetX,
-                pauseButtonRect.top + insetY,
-                pauseButtonRect.left + insetX + barWidth,
-                pauseButtonRect.bottom - insetY,
-                barWidth,
-                barWidth,
-                pauseIconPaint
-            )
-            canvas.drawRoundRect(
-                pauseButtonRect.right - insetX - barWidth,
-                pauseButtonRect.top + insetY,
-                pauseButtonRect.right - insetX,
-                pauseButtonRect.bottom - insetY,
-                barWidth,
-                barWidth,
-                pauseIconPaint
-            )
         }
     }
 
-    private fun drawPowerupBar(canvas: Canvas, left: Float, top: Float, width: Float, height: Float, progress: Float, label: String, color: Int) {
-        val bgRect = RectF(left, top, left + width, top + height)
-        val fillRect = RectF(left, top, left + width * progress.coerceIn(0f, 1f), top + height)
+    private fun drawPowerupStatusBadge(canvas: Canvas, rect: RectF, label: String, progress: Float, color: Int) {
+        canvas.drawRoundRect(rect, rect.height() * 0.35f, rect.height() * 0.35f, glassPanelPaint)
+        canvas.drawRoundRect(rect, rect.height() * 0.35f, rect.height() * 0.35f, glassStrokePaint)
 
-        pBarPaint.color = Color.argb(120, 15, 23, 42)
-        canvas.drawRoundRect(bgRect, height * 0.5f, height * 0.5f, pBarPaint)
-
+        val fillRect = RectF(rect.left, rect.top, rect.left + rect.width() * progress.coerceIn(0f, 1f), rect.bottom)
         pBarPaint.color = color
-        canvas.drawRoundRect(fillRect, height * 0.5f, height * 0.5f, pBarPaint)
+        pBarPaint.alpha = 100
+        canvas.drawRoundRect(fillRect, rect.height() * 0.35f, rect.height() * 0.35f, pBarPaint)
 
-        pBarPaint.color = Color.WHITE
-        pBarPaint.textSize = height * 0.85f
-        pBarPaint.textAlign = Paint.Align.LEFT
-        pBarPaint.typeface = Typeface.DEFAULT_BOLD
-        canvas.drawText(label, left + width + 12f, top + height * 0.85f, pBarPaint)
-    }
-
-    private fun drawTouchControls(canvas: Canvas) {
-        drawTouchBtn(canvas, btnLeftRect, "◄ LEFT")
-        drawTouchBtn(canvas, btnRightRect, "RIGHT ►")
-        drawTouchBtn(canvas, btnJumpRect, "⬆ JUMP")
-        drawTouchBtn(canvas, btnSlideRect, "⚡ ROLL")
-        drawTouchBtn(canvas, btnHoverboardRect, "🛹 HOVERBOARD")
-    }
-
-    private fun drawTouchBtn(canvas: Canvas, rect: RectF, label: String) {
-        canvas.drawRoundRect(rect, rect.height() * 0.35f, rect.height() * 0.35f, touchButtonPaint)
-        canvas.drawRoundRect(rect, rect.height() * 0.35f, rect.height() * 0.35f, touchButtonStrokePaint)
-        val baseline = rect.centerY() - (touchButtonTextPaint.descent() + touchButtonTextPaint.ascent()) / 2f
-        canvas.drawText(label, rect.centerX(), baseline, touchButtonTextPaint)
+        val baseline = rect.centerY() - (badgeTextPaint.descent() + badgeTextPaint.ascent()) / 2f
+        canvas.drawText(label, rect.centerX(), baseline, badgeTextPaint)
     }
 
     private fun drawStartOverlay(canvas: Canvas) {
-        canvas.drawText("SUBWAY SURFERS RUSH", width * 0.5f, height * 0.22f, titlePaint)
-        canvas.drawText("3D Subway Lane Runner Experience", width * 0.5f, height * 0.29f, subtitlePaint)
+        // Concept Main Menu Layout: Top Bar, Center Logo, Bottom Play & Nav Bar
+        canvas.drawText("INFINITY RUSH", width * 0.5f, height * 0.18f, logoTitlePaint)
+        canvas.drawText("NEXUS METRO RUNNER", width * 0.5f, height * 0.23f, subtitlePaint)
 
         val pulseAlpha = (180 + sin(SystemClock.elapsedRealtime() * 0.006f) * 75).toInt().coerceIn(80, 255)
         tapPromptPaint.alpha = pulseAlpha
         canvas.drawText("★ TAP ANYWHERE TO RUN ★", width * 0.5f, height * 0.76f, tapPromptPaint)
+
+        // Concept Bottom Navigation Bar
+        drawPrimaryButton(canvas, "PLAY")
+        drawNavButton(canvas, charactersNavRect, "RUNNERS")
+        drawNavButton(canvas, boardsNavRect, "BOARDS")
+        drawNavButton(canvas, missionsNavRect, "MISSIONS")
+        drawNavButton(canvas, shopNavRect, "SHOP")
+    }
+
+    private fun drawNavButton(canvas: Canvas, rect: RectF, label: String) {
+        canvas.drawRoundRect(rect, rect.height() * 0.35f, rect.height() * 0.35f, glassPanelPaint)
+        canvas.drawRoundRect(rect, rect.height() * 0.35f, rect.height() * 0.35f, glassStrokePaint)
+        val baseline = rect.centerY() - (buttonTextPaint.descent() + buttonTextPaint.ascent()) / 2f
+        canvas.drawText(label, rect.centerX(), baseline, badgeTextPaint)
     }
 
     private fun drawPauseOverlay(canvas: Canvas) {
-        drawOverlayPanel(canvas, 0.3f, 0.2f, 0.7f, 0.78f)
-        canvas.drawText("PAUSED", width * 0.5f, height * 0.34f, titlePaint)
-        canvas.drawText("Take a breather.", width * 0.5f, height * 0.44f, subtitlePaint)
-        canvas.drawText("Tune settings or jump back into the subway rush.", width * 0.5f, height * 0.51f, subtitlePaint)
+        drawOverlayPanel(canvas, 0.2f, 0.28f, 0.8f, 0.72f)
+        canvas.drawText("PAUSED", width * 0.5f, height * 0.38f, headerTextPaint)
+        canvas.drawText("Take a breather.", width * 0.5f, height * 0.46f, subtitlePaint)
         drawPrimaryButton(canvas, "RESUME")
     }
 
     private fun drawGameOverOverlay(canvas: Canvas) {
-        drawOverlayPanel(canvas, 0.24f, 0.12f, 0.76f, 0.88f)
-        canvas.drawText("GAME OVER", width * 0.5f, height * 0.27f, titlePaint)
+        // Concept Run Complete / Results Screen Layout
+        drawOverlayPanel(canvas, 0.12f, 0.15f, 0.88f, 0.85f)
+        canvas.drawText("RUN COMPLETE", width * 0.5f, height * 0.22f, headerTextPaint)
 
         if (isNewHighScore) {
-            canvas.drawText("★ NEW BEST SCORE! ★", width * 0.5f, height * 0.36f, newBestBadgePaint)
+            canvas.drawText("★ NEW BEST! ★", width * 0.5f, height * 0.28f, newBestBadgePaint)
         }
 
-        canvas.drawText("Final Score: $score", width * 0.5f, height * 0.44f, subtitlePaint)
-        canvas.drawText("High Score: $highScore", width * 0.5f, height * 0.50f, subtitlePaint)
-        canvas.drawText("Coins Collected: +$currentRunCoins  (Total: $totalCoins)", width * 0.5f, height * 0.56f, subtitlePaint)
+        val distMeters = distanceTravelled.toInt()
+        canvas.drawText("Score: $score", width * 0.5f, height * 0.36f, headerTextPaint)
+        canvas.drawText("Distance: $distMeters m", width * 0.5f, height * 0.43f, subtitlePaint)
+        canvas.drawText("Coins Collected: +$currentRunCoins (Total: $totalCoins)", width * 0.5f, height * 0.50f, hudCoinPaint)
+        canvas.drawText("Best Run: $highScore", width * 0.5f, height * 0.57f, subtitlePaint)
 
-        drawPrimaryButton(canvas, "REPLAY")
+        drawPrimaryButton(canvas, "RESTART")
     }
 
     private fun drawOverlayPanel(
@@ -1146,13 +1094,13 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
         rightRatio: Float,
         bottomRatio: Float
     ) {
-        canvas.drawColor(Color.argb(80, 2, 6, 16))
+        canvas.drawColor(Color.argb(100, 2, 6, 16))
         val left = width * leftRatio
         val top = height * topRatio
         val right = width * rightRatio
         val bottom = height * bottomRatio
-        canvas.drawRoundRect(left, top, right, bottom, height * 0.04f, height * 0.04f, panelPaint)
-        canvas.drawRoundRect(left, top, right, bottom, height * 0.04f, height * 0.04f, panelStrokePaint)
+        canvas.drawRoundRect(left, top, right, bottom, height * 0.03f, height * 0.03f, glassPanelPaint)
+        canvas.drawRoundRect(left, top, right, bottom, height * 0.03f, height * 0.03f, glassStrokePaint)
     }
 
     private fun drawPrimaryButton(canvas: Canvas, label: String) {
@@ -1167,48 +1115,30 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
     }
 
     private fun drawSettingsButton(canvas: Canvas) {
-        canvas.drawRoundRect(
-            settingsButtonRect,
-            settingsButtonRect.height() * 0.34f,
-            settingsButtonRect.height() * 0.34f,
-            panelPaint
-        )
-        canvas.drawRoundRect(
-            settingsButtonRect,
-            settingsButtonRect.height() * 0.34f,
-            settingsButtonRect.height() * 0.34f,
-            panelStrokePaint
-        )
+        canvas.drawRoundRect(settingsButtonRect, settingsButtonRect.height() * 0.35f, settingsButtonRect.height() * 0.35f, glassPanelPaint)
+        canvas.drawRoundRect(settingsButtonRect, settingsButtonRect.height() * 0.35f, settingsButtonRect.height() * 0.35f, glassStrokePaint)
 
-        val y1 = settingsButtonRect.top + settingsButtonRect.height() * 0.32f
-        val y2 = settingsButtonRect.centerY()
-        val y3 = settingsButtonRect.bottom - settingsButtonRect.height() * 0.32f
-        val left = settingsButtonRect.left + settingsButtonRect.width() * 0.22f
-        val right = settingsButtonRect.right - settingsButtonRect.width() * 0.22f
-        pauseIconPaint.strokeWidth = settingsButtonRect.width() * 0.08f
-        pauseIconPaint.strokeCap = Paint.Cap.ROUND
-
-        canvas.drawLine(left, y1, right, y1, pauseIconPaint)
-        canvas.drawLine(left, y2, right, y2, pauseIconPaint)
-        canvas.drawLine(left, y3, right, y3, pauseIconPaint)
-        canvas.drawCircle(settingsButtonRect.centerX() - settingsButtonRect.width() * 0.08f, y1, settingsButtonRect.width() * 0.08f, pauseIconPaint)
-        canvas.drawCircle(settingsButtonRect.centerX() + settingsButtonRect.width() * 0.1f, y2, settingsButtonRect.width() * 0.08f, pauseIconPaint)
-        canvas.drawCircle(settingsButtonRect.centerX() - settingsButtonRect.width() * 0.02f, y3, settingsButtonRect.width() * 0.08f, pauseIconPaint)
+        val gearCx = settingsButtonRect.centerX()
+        val gearCy = settingsButtonRect.centerY()
+        val r = settingsButtonRect.width() * 0.22f
+        pauseIconPaint.strokeWidth = 4f
+        pauseIconPaint.style = Paint.Style.STROKE
+        canvas.drawCircle(gearCx, gearCy, r, pauseIconPaint)
     }
 
     private fun drawSettingsOverlay(canvas: Canvas) {
-        canvas.drawColor(Color.argb(100, 2, 6, 16))
+        canvas.drawColor(Color.argb(120, 2, 6, 16))
         canvas.drawRoundRect(
             settingsPanelRect,
             height * 0.03f,
             height * 0.03f,
-            panelPaint
+            glassPanelPaint
         )
         canvas.drawRoundRect(
             settingsPanelRect,
             height * 0.03f,
             height * 0.03f,
-            panelStrokePaint
+            glassStrokePaint
         )
 
         canvas.drawText("Settings", settingsPanelRect.centerX(), settingsPanelRect.top + settingsPanelRect.height() * 0.14f, panelTitlePaint)
@@ -1240,7 +1170,7 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
             pillRect,
             pillRect.height() * 0.5f,
             pillRect.height() * 0.5f,
-            if (enabled) buttonPaint else panelPaint
+            if (enabled) buttonPaint else glassPanelPaint
         )
 
         val labelBaseline = rect.centerY() - (toggleLabelPaint.descent() + toggleLabelPaint.ascent()) / 2f
