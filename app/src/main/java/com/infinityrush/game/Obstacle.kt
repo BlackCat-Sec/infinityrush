@@ -5,237 +5,152 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
-import kotlin.math.sin
+import kotlin.math.abs
 import kotlin.random.Random
 
 enum class ObstacleType {
-    BLOCK,
-    SPIKE,
-    MOVING_BARRIER
+    SUBWAY_TRAIN,
+    HURDLE,
+    BARRIER,
+    TRAIN_RAMP
 }
 
 class Obstacle private constructor(
-    private val type: ObstacleType,
-    var x: Float,
-    private var y: Float,
-    private val width: Float,
-    private val height: Float,
-    private val baseY: Float,
-    private val amplitude: Float,
-    private val oscillationSpeed: Float,
-    private var phase: Float
+    val type: ObstacleType,
+    val lane: Int,
+    var z: Float
 ) {
-    private val bodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = when (type) {
-            ObstacleType.BLOCK -> Color.parseColor("#D64550")
-            ObstacleType.SPIKE -> Color.parseColor("#FF6B6B")
-            ObstacleType.MOVING_BARRIER -> Color.parseColor("#7C3AED")
-        }
-    }
-    private val detailPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = when (type) {
-            ObstacleType.BLOCK -> Color.parseColor("#FDE68A")
-            ObstacleType.SPIKE -> Color.parseColor("#FFD9D9")
-            ObstacleType.MOVING_BARRIER -> Color.parseColor("#E9D5FF")
-        }
-    }
-    private val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.argb(45, 0, 0, 0)
+    val length: Float = when (type) {
+        ObstacleType.SUBWAY_TRAIN -> 480f
+        ObstacleType.TRAIN_RAMP -> 520f
+        else -> 60f
     }
 
-    private val tempBounds = RectF()
-    private val spikePath = Path()
+    private val trainPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#0284C7") }
+    private val trainAccentPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#EA580C") }
+    private val windowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#38BDF8") }
+    private val headlightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#FDE047") }
 
-    val obstacleType: ObstacleType
-        get() = type
+    private val hurdlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#F59E0B") }
+    private val barrierPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#EF4444") }
+    private val rampPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#10B981") }
+    private val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 4f
+        color = Color.WHITE
+    }
+
+    private val rampPath = Path()
 
     fun update(deltaSeconds: Float, worldSpeed: Float) {
-        x -= worldSpeed * deltaSeconds
-        if (type == ObstacleType.MOVING_BARRIER) {
-            phase += oscillationSpeed * deltaSeconds
-            y = baseY + sin(phase) * amplitude
+        z -= worldSpeed * deltaSeconds
+    }
+
+    fun isOffScreen(): Boolean = z + length < -100f
+
+    fun intersectsPlayer(player: Player): Boolean {
+        if (player.invincibilityTimer > 0f) {
+            return false
+        }
+
+        val inSameLane = (player.targetLane == lane) || (abs(player.currentLanePos - lane) < 0.45f)
+        if (!inSameLane) {
+            return false
+        }
+
+        val inZRange = (player.z >= z - 30f) && (player.z <= z + length + 20f)
+        if (!inZRange) {
+            return false
+        }
+
+        return when (type) {
+            ObstacleType.HURDLE -> player.currentYOffset < 45f
+            ObstacleType.BARRIER -> !player.isSliding
+            ObstacleType.SUBWAY_TRAIN -> player.currentYOffset < 130f
+            ObstacleType.TRAIN_RAMP -> false
         }
     }
 
-    fun right(): Float = x + width
+    fun draw3D(
+        canvas: Canvas,
+        vpX: Float,
+        vpY: Float,
+        groundFrontY: Float,
+        viewWidth: Float,
+        viewHeight: Float
+    ) {
+        if (z < -length) {
+            return
+        }
 
-    fun isOffScreen(): Boolean = right() < -width
+        val scale = Constants.FOCAL_LENGTH / (z.coerceAtLeast(10f) + Constants.FOCAL_LENGTH)
+        val laneSpacing = viewWidth * 0.38f
+        val screenX = vpX + (lane - 1.0f) * laneSpacing * scale
+        val screenY = vpY + (groundFrontY - vpY) * scale
 
-    fun intersects(playerBounds: RectF): Boolean {
-        getCollisionBounds(tempBounds)
-        return RectF.intersects(playerBounds, tempBounds)
-    }
+        val widthOnScreen = viewWidth * 0.28f * scale
 
-    fun draw(canvas: Canvas) {
-        canvas.drawOval(
-            x + width * 0.1f,
-            y + height * 0.88f,
-            x + width * 0.9f,
-            y + height * 1.12f,
-            shadowPaint
-        )
         when (type) {
-            ObstacleType.BLOCK -> drawBlock(canvas)
-            ObstacleType.SPIKE -> drawSpike(canvas)
-            ObstacleType.MOVING_BARRIER -> drawMovingBarrier(canvas)
+            ObstacleType.SUBWAY_TRAIN -> drawTrain(canvas, screenX, screenY, widthOnScreen, viewHeight * 0.32f * scale)
+            ObstacleType.TRAIN_RAMP -> drawRamp(canvas, screenX, screenY, widthOnScreen, viewHeight * 0.32f * scale)
+            ObstacleType.HURDLE -> drawHurdle(canvas, screenX, screenY, widthOnScreen, viewHeight * 0.12f * scale)
+            ObstacleType.BARRIER -> drawBarrier(canvas, screenX, screenY, widthOnScreen, viewHeight * 0.22f * scale)
         }
     }
 
-    private fun drawBlock(canvas: Canvas) {
-        val blockRect = RectF(x, y, x + width, y + height)
-        canvas.drawRoundRect(blockRect, width * 0.18f, width * 0.18f, bodyPaint)
+    private fun drawTrain(canvas: Canvas, cx: Float, cy: Float, width: Float, height: Float) {
+        val rect = RectF(cx - width / 2f, cy - height, cx + width / 2f, cy)
+        canvas.drawRoundRect(rect, height * 0.15f, height * 0.15f, trainPaint)
+        canvas.drawRoundRect(rect, height * 0.15f, height * 0.15f, strokePaint)
 
-        val inset = width * 0.16f
-        val inner = RectF(
-            blockRect.left + inset,
-            blockRect.top + inset,
-            blockRect.right - inset,
-            blockRect.bottom - inset
-        )
-        canvas.drawRoundRect(inner, width * 0.1f, width * 0.1f, detailPaint)
+        val windowRect = RectF(rect.left + width * 0.15f, rect.top + height * 0.2f, rect.right - width * 0.15f, rect.top + height * 0.5f)
+        canvas.drawRoundRect(windowRect, height * 0.08f, height * 0.08f, windowPaint)
+
+        val hlRadius = width * 0.12f
+        canvas.drawCircle(rect.left + width * 0.25f, rect.bottom - height * 0.2f, hlRadius, headlightPaint)
+        canvas.drawCircle(rect.right - width * 0.25f, rect.bottom - height * 0.2f, hlRadius, headlightPaint)
     }
 
-    private fun drawSpike(canvas: Canvas) {
-        spikePath.reset()
-        spikePath.moveTo(x, y + height)
-        spikePath.lineTo(x + width * 0.33f, y + height * 0.28f)
-        spikePath.lineTo(x + width * 0.66f, y + height)
-        spikePath.lineTo(x + width, y + height * 0.24f)
-        spikePath.lineTo(x + width, y + height)
-        spikePath.close()
-        canvas.drawPath(spikePath, bodyPaint)
+    private fun drawRamp(canvas: Canvas, cx: Float, cy: Float, width: Float, height: Float) {
+        rampPath.reset()
+        rampPath.moveTo(cx - width / 2f, cy)
+        rampPath.lineTo(cx + width / 2f, cy)
+        rampPath.lineTo(cx + width * 0.4f, cy - height)
+        rampPath.lineTo(cx - width * 0.4f, cy - height)
+        rampPath.close()
 
-        canvas.drawRect(
-            x,
-            y + height * 0.78f,
-            x + width,
-            y + height,
-            detailPaint
-        )
+        canvas.drawPath(rampPath, rampPaint)
+        canvas.drawPath(rampPath, strokePaint)
     }
 
-    private fun drawMovingBarrier(canvas: Canvas) {
-        val barrierRect = RectF(x, y, x + width, y + height)
-        canvas.drawRoundRect(barrierRect, height * 0.5f, height * 0.5f, bodyPaint)
-        canvas.drawCircle(x + width * 0.08f, y + height / 2f, height * 0.52f, detailPaint)
-        canvas.drawCircle(x + width * 0.92f, y + height / 2f, height * 0.52f, detailPaint)
+    private fun drawHurdle(canvas: Canvas, cx: Float, cy: Float, width: Float, height: Float) {
+        val rect = RectF(cx - width / 2f, cy - height, cx + width / 2f, cy)
+        canvas.drawRoundRect(rect, height * 0.2f, height * 0.2f, hurdlePaint)
+        canvas.drawRoundRect(rect, height * 0.2f, height * 0.2f, strokePaint)
     }
 
-    private fun getCollisionBounds(outRect: RectF) {
-        when (type) {
-            ObstacleType.BLOCK -> outRect.set(
-                x + width * 0.08f,
-                y + height * 0.06f,
-                x + width * 0.92f,
-                y + height
-            )
+    private fun drawBarrier(canvas: Canvas, cx: Float, cy: Float, width: Float, height: Float) {
+        val boardH = height * 0.45f
+        val rect = RectF(cx - width / 2f, cy - height, cx + width / 2f, cy - height + boardH)
+        canvas.drawRoundRect(rect, boardH * 0.2f, boardH * 0.2f, barrierPaint)
 
-            ObstacleType.SPIKE -> outRect.set(
-                x + width * 0.08f,
-                y + height * 0.22f,
-                x + width * 0.92f,
-                y + height
-            )
-
-            ObstacleType.MOVING_BARRIER -> outRect.set(
-                x,
-                y,
-                x + width,
-                y + height
-            )
-        }
+        canvas.drawLine(cx - width * 0.4f, cy - height + boardH, cx - width * 0.4f, cy, strokePaint)
+        canvas.drawLine(cx + width * 0.4f, cy - height + boardH, cx + width * 0.4f, cy, strokePaint)
     }
 
     companion object {
-        fun create(
-            type: ObstacleType,
-            spawnX: Float,
-            groundTop: Float,
-            viewHeight: Int,
-            random: Random
-        ): Obstacle {
-            return when (type) {
-                ObstacleType.BLOCK -> createBlock(spawnX, groundTop, viewHeight)
-                ObstacleType.SPIKE -> createSpike(spawnX, groundTop, viewHeight)
-                ObstacleType.MOVING_BARRIER -> createMovingBarrier(spawnX, groundTop, viewHeight, random)
+        fun createRandom(random: Random, difficultyLevel: Int): Obstacle {
+            val lane = random.nextInt(Constants.LANE_COUNT)
+            val type = when {
+                difficultyLevel == 0 -> if (random.nextBoolean()) ObstacleType.HURDLE else ObstacleType.BARRIER
+                else -> when (random.nextInt(4)) {
+                    0 -> ObstacleType.HURDLE
+                    1 -> ObstacleType.BARRIER
+                    2 -> ObstacleType.SUBWAY_TRAIN
+                    else -> ObstacleType.TRAIN_RAMP
+                }
             }
-        }
-
-        fun createRandom(
-            spawnX: Float,
-            groundTop: Float,
-            viewHeight: Int,
-            difficultyLevel: Int,
-            random: Random
-        ): Obstacle {
-            val availableTypes = mutableListOf(ObstacleType.BLOCK, ObstacleType.SPIKE)
-            if (difficultyLevel >= 1) {
-                availableTypes += ObstacleType.BLOCK
-            }
-            if (difficultyLevel >= 2) {
-                availableTypes += ObstacleType.MOVING_BARRIER
-            }
-
-            return create(availableTypes.random(random), spawnX, groundTop, viewHeight, random)
-        }
-
-        private fun createBlock(spawnX: Float, groundTop: Float, viewHeight: Int): Obstacle {
-            val width = viewHeight * Constants.BLOCK_WIDTH_RATIO
-            val height = viewHeight * Constants.BLOCK_HEIGHT_RATIO
-            val y = groundTop - height
-            return Obstacle(
-                type = ObstacleType.BLOCK,
-                x = spawnX,
-                y = y,
-                width = width,
-                height = height,
-                baseY = y,
-                amplitude = 0f,
-                oscillationSpeed = 0f,
-                phase = 0f
-            )
-        }
-
-        private fun createSpike(spawnX: Float, groundTop: Float, viewHeight: Int): Obstacle {
-            val width = viewHeight * Constants.SPIKE_WIDTH_RATIO
-            val height = viewHeight * Constants.SPIKE_HEIGHT_RATIO
-            val y = groundTop - height
-            return Obstacle(
-                type = ObstacleType.SPIKE,
-                x = spawnX,
-                y = y,
-                width = width,
-                height = height,
-                baseY = y,
-                amplitude = 0f,
-                oscillationSpeed = 0f,
-                phase = 0f
-            )
-        }
-
-        private fun createMovingBarrier(
-            spawnX: Float,
-            groundTop: Float,
-            viewHeight: Int,
-            random: Random
-        ): Obstacle {
-            val width = viewHeight * Constants.MOVING_BARRIER_WIDTH_RATIO
-            val height = viewHeight * Constants.MOVING_BARRIER_HEIGHT_RATIO
-            val hoverHeight = viewHeight * 0.16f
-            val baseY = groundTop - hoverHeight - height
-            val amplitude = viewHeight * 0.07f
-
-            return Obstacle(
-                type = ObstacleType.MOVING_BARRIER,
-                x = spawnX,
-                y = baseY,
-                width = width,
-                height = height,
-                baseY = baseY,
-                amplitude = amplitude,
-                oscillationSpeed = 3.2f + random.nextFloat() * 1.8f,
-                phase = random.nextFloat() * (Math.PI.toFloat() * 2f)
-            )
+            return Obstacle(type, lane, Constants.SPAWN_Z)
         }
     }
 }

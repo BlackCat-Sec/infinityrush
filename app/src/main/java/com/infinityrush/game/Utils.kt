@@ -39,6 +39,18 @@ object Utils {
             .apply()
     }
 
+    fun getTotalCoins(context: Context): Int {
+        return context.getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE)
+            .getInt(Constants.TOTAL_COINS_KEY, 0)
+    }
+
+    fun saveTotalCoins(context: Context, totalCoins: Int) {
+        context.getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putInt(Constants.TOTAL_COINS_KEY, totalCoins)
+            .apply()
+    }
+
     fun isMusicEnabled(context: Context): Boolean {
         return context.getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE)
             .getBoolean(Constants.MUSIC_ENABLED_KEY, true)
