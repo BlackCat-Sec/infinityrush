@@ -1,0 +1,17 @@
+{
+    "name": "InfinityRush.Runner",
+    "rootNamespace": "InfinityRush.Runner",
+    "references": [
+        "InfinityRush.Core",
+        "InfinityRush.Input"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
