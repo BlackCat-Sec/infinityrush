@@ -2,8 +2,10 @@ package com.infinityrush.game
 
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.RectF
+import android.graphics.Shader
 import kotlin.math.exp
 import kotlin.math.sin
 
@@ -54,26 +56,27 @@ class Player {
     private var isFastDropping = false
 
     private val bodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#0284C7") }
-    private val hoodiePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#F97316") }
-    private val capPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#EF4444") }
+    private val hoodiePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val capPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#DC2626") }
     private val visorPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#38BDF8") }
-    private val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(80, 0, 0, 0) }
+    private val shoePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#F8FAFC") }
+    private val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(100, 0, 0, 0) }
 
-    private val hoverboardPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#F59E0B") }
-    private val hoverboardGlowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(160, 245, 158, 11) }
+    private val hoverboardPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val hoverboardGlowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(180, 245, 158, 11) }
 
-    private val jetpackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#84CC16") }
+    private val jetpackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#65A30D") }
     private val jetFlamePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#F97316") }
 
     private val magnetAuraPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.argb(140, 239, 68, 68)
+        color = Color.argb(160, 239, 68, 68)
         style = Paint.Style.STROKE
-        strokeWidth = 5f
+        strokeWidth = 6f
     }
     private val multiplierAuraPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.argb(140, 168, 85, 247)
+        color = Color.argb(160, 168, 85, 247)
         style = Paint.Style.STROKE
-        strokeWidth = 5f
+        strokeWidth = 6f
     }
 
     fun reset() {
@@ -279,7 +282,8 @@ class Player {
         val charWidth = viewHeight * 0.16f * scale * squashScaleX
         val charHeight = if (isSliding) viewHeight * 0.14f * scale * squashScaleY else viewHeight * 0.28f * scale * squashScaleY
 
-        val shadowW = charWidth * 0.9f
+        // 1. Soft Dynamic Shadow on Ground
+        val shadowW = charWidth * (0.95f - (yOffset / 300f) * 0.3f).coerceAtLeast(0.4f)
         val shadowH = charWidth * 0.35f
         val shadowY = vpY + (groundFrontY - vpY) * scale
         canvas.drawOval(
@@ -290,30 +294,35 @@ class Player {
             shadowPaint
         )
 
+        // 2. Hoverboard
         if (hasHoverboard) {
-            val hbW = charWidth * 1.5f
+            val hbW = charWidth * 1.55f
             val hbH = charHeight * 0.18f
             val hbY = screenY - hbH * 0.5f
+
+            hoverboardPaint.shader = LinearGradient(
+                screenX - hbW / 2f, hbY, screenX + hbW / 2f, hbY + hbH,
+                Color.parseColor("#F59E0B"), Color.parseColor("#D97706"),
+                Shader.TileMode.CLAMP
+            )
+
             canvas.drawRoundRect(
-                screenX - hbW / 2f,
-                hbY,
-                screenX + hbW / 2f,
-                hbY + hbH,
-                hbH * 0.5f,
-                hbH * 0.5f,
-                hoverboardPaint
+                screenX - hbW / 2f, hbY, screenX + hbW / 2f, hbY + hbH,
+                hbH * 0.5f, hbH * 0.5f, hoverboardPaint
             )
             canvas.drawCircle(screenX, hbY + hbH / 2f, hbH * 0.8f, hoverboardGlowPaint)
         }
 
+        // 3. Jetpack
         if (hasJetpack) {
             val jpW = charWidth * 0.4f
             canvas.drawRect(screenX - jpW * 1.2f, screenY - charHeight * 0.7f, screenX - jpW * 0.2f, screenY - charHeight * 0.2f, jetpackPaint)
             canvas.drawRect(screenX + jpW * 0.2f, screenY - charHeight * 0.7f, screenX + jpW * 1.2f, screenY - charHeight * 0.2f, jetpackPaint)
-            canvas.drawCircle(screenX - jpW * 0.7f, screenY - charHeight * 0.1f, jpW * 0.4f, jetFlamePaint)
-            canvas.drawCircle(screenX + jpW * 0.7f, screenY - charHeight * 0.1f, jpW * 0.4f, jetFlamePaint)
+            canvas.drawCircle(screenX - jpW * 0.7f, screenY - charHeight * 0.1f, jpW * 0.45f, jetFlamePaint)
+            canvas.drawCircle(screenX + jpW * 0.7f, screenY - charHeight * 0.1f, jpW * 0.45f, jetFlamePaint)
         }
 
+        // 4. Powerup Aura Rings
         if (magnetTimer > 0f) {
             canvas.drawCircle(screenX, screenY - charHeight * 0.5f, charWidth * 1.2f, magnetAuraPaint)
         }
@@ -326,6 +335,12 @@ class Player {
             screenY - charHeight,
             screenX + charWidth / 2f,
             screenY
+        )
+
+        hoodiePaint.shader = LinearGradient(
+            playerRect.left, playerRect.top, playerRect.right, playerRect.bottom,
+            Color.parseColor("#EA580C"), Color.parseColor("#C2410C"),
+            Shader.TileMode.CLAMP
         )
 
         if (isSliding) {
@@ -343,9 +358,13 @@ class Player {
                 playerRect.bottom - charHeight * 0.32f
             )
 
+            // Cap
             canvas.drawCircle(headCx, headCy, headRadius, capPaint)
+
+            // Hoodie Torso
             canvas.drawRoundRect(torso, charWidth * 0.15f, charWidth * 0.15f, hoodiePaint)
 
+            // Visor Glass
             val visorRect = RectF(
                 headCx - headRadius * 0.7f,
                 headCy - headRadius * 0.3f,
@@ -354,6 +373,7 @@ class Player {
             )
             canvas.drawRoundRect(visorRect, headRadius * 0.2f, headRadius * 0.2f, visorPaint)
 
+            // Dynamic Running Legs & Sneakers
             val stride = sin(animationTime * 1.5f) * charWidth * 0.22f
             val legW = charWidth * 0.28f
             val leftLeg = RectF(
@@ -370,6 +390,18 @@ class Player {
             )
             canvas.drawRoundRect(leftLeg, legW * 0.3f, legW * 0.3f, bodyPaint)
             canvas.drawRoundRect(rightLeg, legW * 0.3f, legW * 0.3f, bodyPaint)
+
+            // Sneakers
+            canvas.drawRoundRect(
+                leftLeg.left, leftLeg.bottom - legW * 0.35f,
+                leftLeg.right + legW * 0.2f, leftLeg.bottom,
+                legW * 0.15f, legW * 0.15f, shoePaint
+            )
+            canvas.drawRoundRect(
+                rightLeg.left, rightLeg.bottom - legW * 0.35f,
+                rightLeg.right + legW * 0.2f, rightLeg.bottom,
+                legW * 0.15f, legW * 0.15f, shoePaint
+            )
         }
     }
 }

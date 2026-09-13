@@ -1,0 +1,17 @@
+{
+    "name": "InfinityRush.Camera",
+    "rootNamespace": "InfinityRush.Camera",
+    "references": [
+        "InfinityRush.Core",
+        "InfinityRush.Runner"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -77,9 +77,9 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
         strokeWidth = 4f
     }
 
-    private val panelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(205, 10, 15, 30) }
+    private val panelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(190, 10, 15, 30) }
     private val panelStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.argb(120, 6, 182, 212)
+        color = Color.argb(140, 6, 182, 212)
         style = Paint.Style.STROKE
         strokeWidth = Utils.dpToPx(context, 2f)
     }
@@ -142,6 +142,11 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
     }
     private val toggleValuePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
+        textAlign = Paint.Align.CENTER
+        typeface = Typeface.DEFAULT_BOLD
+    }
+    private val tapPromptPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#FDE047")
         textAlign = Paint.Align.CENTER
         typeface = Typeface.DEFAULT_BOLD
     }
@@ -282,6 +287,15 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
                 gestureConsumed = false
                 touchStartedOnUi = shouldTreatTouchAsUi(event.x, event.y)
 
+                if (gameState == GameState.START && !isSettingsOverlayVisible) {
+                    if (Utils.isInside(settingsButtonRect, event.x, event.y)) {
+                        isSettingsOverlayVisible = true
+                    } else {
+                        startNewRun()
+                    }
+                    return true
+                }
+
                 if (gameState == GameState.RUNNING && !touchStartedOnUi && !isSettingsOverlayVisible) {
                     if (now - lastTapTime < Constants.DOUBLE_TAP_MAX_DELAY_MS) {
                         player.activateHoverboard()
@@ -415,6 +429,7 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
         newBestBadgePaint.textSize = viewHeight * 0.036f
         toggleLabelPaint.textSize = viewHeight * 0.034f
         toggleValuePaint.textSize = viewHeight * 0.028f
+        tapPromptPaint.textSize = viewHeight * 0.048f
 
         val buttonWidth = viewWidth * Constants.MENU_BUTTON_WIDTH_RATIO
         val buttonHeight = viewHeight * Constants.MENU_BUTTON_HEIGHT_RATIO
@@ -487,6 +502,18 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
         )
 
         player.reset()
+        initStartScreenPreview()
+    }
+
+    private fun initStartScreenPreview() {
+        obstacles.clear()
+        collectibles.clear()
+
+        obstacles += Obstacle.createRandom(random, 0)
+        val trainObs = Obstacle.createRandom(random, 1)
+        obstacles += trainObs
+
+        spawnCollectiblesForObstacle(trainObs)
     }
 
     private fun startGameLoop() {
@@ -516,6 +543,14 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
     private fun updateAmbient(deltaSeconds: Float) {
         trackScrollZ += width * 0.35f * deltaSeconds
         stars.forEach { star -> star.phase += deltaSeconds * star.speed }
+
+        obstacles.forEach { it.update(deltaSeconds, 400f) }
+        collectibles.forEach { it.update(deltaSeconds, 400f) }
+
+        if (obstacles.all { it.isOffScreen() }) {
+            initStartScreenPreview()
+        }
+
         updateParticles(deltaSeconds)
         updateScreenShake(deltaSeconds)
     }
@@ -736,10 +771,7 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
         when (gameState) {
             GameState.START -> {
                 soundManager.playButtonClick()
-                when {
-                    Utils.isInside(settingsButtonRect, x, y) -> isSettingsOverlayVisible = true
-                    Utils.isInside(primaryButtonRect, x, y) -> startNewRun()
-                }
+                startNewRun()
             }
 
             GameState.RUNNING -> {
@@ -790,7 +822,7 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
         return when {
             isSettingsOverlayVisible -> true
             gameState == GameState.RUNNING -> Utils.isInside(pauseButtonRect, x, y)
-            else -> Utils.isInside(primaryButtonRect, x, y) || Utils.isInside(settingsButtonRect, x, y)
+            else -> Utils.isInside(settingsButtonRect, x, y)
         }
     }
 
@@ -1076,14 +1108,12 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
     }
 
     private fun drawStartOverlay(canvas: Canvas) {
-        drawOverlayPanel(canvas, 0.20f, 0.08f, 0.80f, 0.86f)
-        canvas.drawText("SUBWAY SURFERS RUSH", width * 0.5f, height * 0.23f, titlePaint)
-        canvas.drawText("3D Subway Lane Runner Experience", width * 0.5f, height * 0.31f, subtitlePaint)
-        canvas.drawText("Swipe LEFT / RIGHT or Tap ◄ / ► to Switch Lanes", width * 0.5f, height * 0.39f, subtitlePaint)
-        canvas.drawText("Swipe UP / DOWN or Tap JUMP / ROLL to Jump & Roll", width * 0.5f, height * 0.45f, subtitlePaint)
-        canvas.drawText("Double-Tap or Tap 🛹 HOVERBOARD for Crash Protection!", width * 0.5f, height * 0.51f, subtitlePaint)
-        canvas.drawText("Dodge Subway Trains, collect Coins & Power-ups!", width * 0.5f, height * 0.57f, subtitlePaint)
-        drawPrimaryButton(canvas, "PLAY")
+        canvas.drawText("SUBWAY SURFERS RUSH", width * 0.5f, height * 0.22f, titlePaint)
+        canvas.drawText("3D Subway Lane Runner Experience", width * 0.5f, height * 0.29f, subtitlePaint)
+
+        val pulseAlpha = (180 + sin(SystemClock.elapsedRealtime() * 0.006f) * 75).toInt().coerceIn(80, 255)
+        tapPromptPaint.alpha = pulseAlpha
+        canvas.drawText("★ TAP ANYWHERE TO RUN ★", width * 0.5f, height * 0.76f, tapPromptPaint)
     }
 
     private fun drawPauseOverlay(canvas: Canvas) {

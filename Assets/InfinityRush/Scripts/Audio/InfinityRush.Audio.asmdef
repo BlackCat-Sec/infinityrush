@@ -1,0 +1,16 @@
+{
+    "name": "InfinityRush.Audio",
+    "rootNamespace": "InfinityRush.Audio",
+    "references": [
+        "InfinityRush.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

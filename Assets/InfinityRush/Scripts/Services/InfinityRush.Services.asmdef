@@ -1,0 +1,16 @@
+{
+    "name": "InfinityRush.Services",
+    "rootNamespace": "InfinityRush.Services",
+    "references": [
+        "InfinityRush.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
