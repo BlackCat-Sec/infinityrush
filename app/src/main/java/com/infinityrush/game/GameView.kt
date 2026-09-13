@@ -55,6 +55,11 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
     private val coinHudRect = RectF()
     private val scoreHudRect = RectF()
 
+    // Menu Top Bar Rects
+    private val menuLevelRect = RectF()
+    private val menuCoinsRect = RectF()
+    private val menuGemsRect = RectF()
+
     // Bottom HUD Power-Up Status Rects
     private val magnetStatusRect = RectF()
     private val shieldStatusRect = RectF()
@@ -180,6 +185,7 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
     private var highScore = Utils.getHighScore(context)
     private var currentRunCoins = 0
     private var totalCoins = Utils.getTotalCoins(context)
+    private var totalCrystals = 120
     private var isNewHighScore = false
 
     private var distanceTravelled = 0f
@@ -405,13 +411,13 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
             Shader.TileMode.CLAMP
         )
 
-        logoTitlePaint.textSize = viewHeight * 0.055f
+        logoTitlePaint.textSize = viewHeight * 0.052f
         headerTextPaint.textSize = viewHeight * 0.045f
-        subtitlePaint.textSize = viewHeight * 0.024f
-        buttonTextPaint.textSize = viewHeight * 0.028f
+        subtitlePaint.textSize = viewHeight * 0.022f
+        buttonTextPaint.textSize = viewHeight * 0.026f
         hudScorePaint.textSize = viewHeight * 0.032f
         hudDistPaint.textSize = viewHeight * 0.022f
-        hudCoinPaint.textSize = viewHeight * 0.028f
+        hudCoinPaint.textSize = viewHeight * 0.026f
         badgeTextPaint.textSize = viewHeight * 0.022f
         panelTitlePaint.textSize = viewHeight * 0.032f
         toggleLabelPaint.textSize = viewHeight * 0.024f
@@ -419,10 +425,10 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
         newBestBadgePaint.textSize = viewHeight * 0.026f
         tapPromptPaint.textSize = viewHeight * 0.028f
 
-        // Top HUD Layout
-        val topMargin = viewHeight * 0.035f
+        // Top HUD Layout (In-Game)
+        val topMargin = viewHeight * 0.04f
         val edgeMargin = viewWidth * 0.04f
-        val iconSize = viewHeight * 0.055f
+        val iconSize = viewHeight * 0.05f
 
         pauseButtonRect.set(edgeMargin, topMargin, edgeMargin + iconSize, topMargin + iconSize)
         levelBadgeRect.set(pauseButtonRect.right + viewWidth * 0.02f, topMargin, pauseButtonRect.right + viewWidth * 0.18f, topMargin + iconSize)
@@ -430,14 +436,18 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
         val coinW = viewWidth * 0.28f
         coinHudRect.set(viewWidth * 0.5f - coinW / 2f, topMargin, viewWidth * 0.5f + coinW / 2f, topMargin + iconSize)
 
-        val scoreW = viewWidth * 0.32f
+        val scoreW = viewWidth * 0.28f
         scoreHudRect.set(viewWidth - edgeMargin - scoreW, topMargin, viewWidth - edgeMargin, topMargin + iconSize)
 
+        // Menu Top Bar (Main Menu)
+        menuLevelRect.set(edgeMargin, topMargin, edgeMargin + viewWidth * 0.18f, topMargin + iconSize)
+        menuCoinsRect.set(viewWidth * 0.32f, topMargin, viewWidth * 0.58f, topMargin + iconSize)
+        menuGemsRect.set(viewWidth * 0.61f, topMargin, viewWidth * 0.83f, topMargin + iconSize)
         settingsButtonRect.set(viewWidth - edgeMargin - iconSize, topMargin, viewWidth - edgeMargin, topMargin + iconSize)
 
         // Bottom Power-Up HUD Status Badges
         val statusW = viewWidth * 0.16f
-        val statusH = viewHeight * 0.07f
+        val statusH = viewHeight * 0.065f
         val bottomMargin = viewHeight * 0.04f
 
         magnetStatusRect.set(edgeMargin, viewHeight - bottomMargin - statusH, edgeMargin + statusW, viewHeight - bottomMargin)
@@ -449,7 +459,7 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
         primaryButtonRect.set(viewWidth * 0.5f - primaryW / 2f, viewHeight * 0.82f, viewWidth * 0.5f + primaryW / 2f, viewHeight * 0.82f + primaryH)
 
         val navW = viewWidth * 0.18f
-        val navH = viewHeight * 0.055f
+        val navH = viewHeight * 0.052f
         val navY = viewHeight * 0.90f
 
         charactersNavRect.set(viewWidth * 0.08f, navY, viewWidth * 0.08f + navW, navY + navH)
@@ -923,13 +933,15 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
         player.draw3D(canvas, vpX, vpY, groundFrontY, width.toFloat(), height.toFloat())
 
         particles.forEach { it.draw(canvas, particlePaint) }
-        drawHud(canvas)
 
         when (gameState) {
             GameState.START -> drawStartOverlay(canvas)
-            GameState.PAUSED -> drawPauseOverlay(canvas)
+            GameState.RUNNING -> drawHud(canvas)
+            GameState.PAUSED -> {
+                drawHud(canvas)
+                drawPauseOverlay(canvas)
+            }
             GameState.GAME_OVER -> drawGameOverOverlay(canvas)
-            GameState.RUNNING -> Unit
         }
 
         if (gameState != GameState.RUNNING) {
@@ -985,8 +997,8 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
     }
 
     private fun drawHud(canvas: Canvas) {
-        // Top HUD Layout matching Concept Images: Top-Left Level & Pause, Top-Center Coins, Top-Right Score & Distance
-        // 1. Top-Left: Pause & Level Badge
+        // Active Gameplay HUD: Top-Left Pause & Level, Top-Center Coins, Top-Right Score & Distance
+        // 1. Top-Left: Pause Button & Level Badge
         canvas.drawRoundRect(pauseButtonRect, pauseButtonRect.height() * 0.5f, pauseButtonRect.height() * 0.5f, glassPanelPaint)
         canvas.drawRoundRect(pauseButtonRect, pauseButtonRect.height() * 0.5f, pauseButtonRect.height() * 0.5f, glassStrokePaint)
         val pauseCenterY = pauseButtonRect.centerY()
@@ -1000,7 +1012,7 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
         val badgeBaseline = levelBadgeRect.centerY() - (badgeTextPaint.descent() + badgeTextPaint.ascent()) / 2f
         canvas.drawText("Lv 12", levelBadgeRect.centerX(), badgeBaseline, badgeTextPaint)
 
-        // 2. Top-Center: Infinity Coins Bank
+        // 2. Top-Center: Infinity Coins Counter
         canvas.drawRoundRect(coinHudRect, coinHudRect.height() * 0.45f, coinHudRect.height() * 0.45f, glassPanelPaint)
         canvas.drawRoundRect(coinHudRect, coinHudRect.height() * 0.45f, coinHudRect.height() * 0.45f, glassStrokePaint)
         val coinBaseline = coinHudRect.centerY() - (hudCoinPaint.descent() + hudCoinPaint.ascent()) / 2f
@@ -1015,13 +1027,11 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
         canvas.drawText("$distMeters m", scoreHudRect.right, scoreHudRect.bottom, hudDistPaint)
 
         // 4. Bottom Active Power-Up Badges
-        if (gameState == GameState.RUNNING) {
-            if (player.magnetTimer > 0f) {
-                drawPowerupStatusBadge(canvas, magnetStatusRect, "MAGNET", player.magnetTimer / Constants.MAGNET_DURATION_SECONDS, Color.parseColor("#EF4444"))
-            }
-            if (player.hasHoverboard) {
-                drawPowerupStatusBadge(canvas, shieldStatusRect, "GLIDE", player.hoverboardTimer / Constants.HOVERBOARD_DURATION_SECONDS, Color.parseColor("#06B6D4"))
-            }
+        if (player.magnetTimer > 0f) {
+            drawPowerupStatusBadge(canvas, magnetStatusRect, "MAGNET", player.magnetTimer / Constants.MAGNET_DURATION_SECONDS, Color.parseColor("#EF4444"))
+        }
+        if (player.hasHoverboard) {
+            drawPowerupStatusBadge(canvas, shieldStatusRect, "GLIDE", player.hoverboardTimer / Constants.HOVERBOARD_DURATION_SECONDS, Color.parseColor("#06B6D4"))
         }
     }
 
@@ -1039,10 +1049,27 @@ class GameView(context: Context) : SurfaceView(context), SurfaceHolder.Callback,
     }
 
     private fun drawStartOverlay(canvas: Canvas) {
-        // Concept Main Menu Layout: Top Bar, Center Logo, Bottom Play & Nav Bar
-        canvas.drawText("INFINITY RUSH", width * 0.5f, height * 0.18f, logoTitlePaint)
-        canvas.drawText("NEXUS METRO RUNNER", width * 0.5f, height * 0.23f, subtitlePaint)
+        // Concept Main Menu Layout: Top Bar (Level, Coins, Gems, Settings)
+        canvas.drawRoundRect(menuLevelRect, menuLevelRect.height() * 0.4f, menuLevelRect.height() * 0.4f, glassPanelPaint)
+        canvas.drawRoundRect(menuLevelRect, menuLevelRect.height() * 0.4f, menuLevelRect.height() * 0.4f, glassStrokePaint)
+        val levelBaseline = menuLevelRect.centerY() - (badgeTextPaint.descent() + badgeTextPaint.ascent()) / 2f
+        canvas.drawText("Lv 12", menuLevelRect.centerX(), levelBaseline, badgeTextPaint)
 
+        canvas.drawRoundRect(menuCoinsRect, menuCoinsRect.height() * 0.4f, menuCoinsRect.height() * 0.4f, glassPanelPaint)
+        canvas.drawRoundRect(menuCoinsRect, menuCoinsRect.height() * 0.4f, menuCoinsRect.height() * 0.4f, glassStrokePaint)
+        val coinBaseline = menuCoinsRect.centerY() - (hudCoinPaint.descent() + hudCoinPaint.ascent()) / 2f
+        canvas.drawText("$totalCoins", menuCoinsRect.centerX(), coinBaseline, hudCoinPaint)
+
+        canvas.drawRoundRect(menuGemsRect, menuGemsRect.height() * 0.4f, menuGemsRect.height() * 0.4f, glassPanelPaint)
+        canvas.drawRoundRect(menuGemsRect, menuGemsRect.height() * 0.4f, menuGemsRect.height() * 0.4f, glassStrokePaint)
+        val gemBaseline = menuGemsRect.centerY() - (hudDistPaint.descent() + hudDistPaint.ascent()) / 2f
+        canvas.drawText("$totalCrystals", menuGemsRect.centerX(), gemBaseline, hudDistPaint)
+
+        // Center Title & Subtitle
+        canvas.drawText("INFINITY RUSH", width * 0.5f, height * 0.20f, logoTitlePaint)
+        canvas.drawText("NEXUS METRO RUNNER", width * 0.5f, height * 0.25f, subtitlePaint)
+
+        // Pulsing Tap Prompt
         val pulseAlpha = (180 + sin(SystemClock.elapsedRealtime() * 0.006f) * 75).toInt().coerceIn(80, 255)
         tapPromptPaint.alpha = pulseAlpha
         canvas.drawText("★ TAP ANYWHERE TO RUN ★", width * 0.5f, height * 0.76f, tapPromptPaint)
